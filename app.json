@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Habits-app",
+    "name": "Habits",
     "slug": "Habits-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -31,6 +31,13 @@
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      "expo-sqlite",
+      [
+        "expo-notifications",
+        {
+          "color": "#5B5BD6"
         }
       ]
     ],
