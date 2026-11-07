@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Alert, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
+import { Common } from '@/constants/styles';
 import { Alpha, CardPadding, HabitColors, HabitIcons, Radius, Spacing, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { describeDays } from '@/lib/dates';
@@ -140,6 +141,7 @@ export function HabitForm({
                   setIcon(i);
                 }}
                 style={[
+                  Common.circle,
                   styles.iconCell,
                   colorTransition,
                   {
@@ -163,7 +165,12 @@ export function HabitForm({
                 setColor(c);
               }}
               accessibilityLabel={`Color ${c}`}
-              style={[styles.colorRing, colorTransition, { borderColor: c === color ? c : 'transparent' }]}>
+              style={[
+                Common.circle,
+                styles.colorRing,
+                colorTransition,
+                { borderColor: c === color ? c : 'transparent' },
+              ]}>
               <View style={[styles.colorDot, { backgroundColor: c }]} />
             </PressableScale>
           ))}
@@ -192,8 +199,8 @@ export function HabitForm({
       </Card>
 
       <Card>
-        <View style={styles.switchRow}>
-          <View style={styles.flex}>
+        <View style={[Common.row, styles.switchRow]}>
+          <View style={Common.flex}>
             <Txt variant="button">Reminders</Txt>
             <Txt variant="note" tone="textSecondary">
               {notificationsSupported
@@ -263,7 +270,6 @@ export function HabitForm({
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
   preview: { alignItems: 'center', paddingVertical: Spacing.two },
   section: { gap: Spacing.two, paddingTop: Spacing.two },
   sectionTop: { paddingTop: Spacing.three },
@@ -277,23 +283,9 @@ const styles = StyleSheet.create({
   lastInput: { marginBottom: 0 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   gridSpacing: { marginBottom: Spacing.three },
-  iconCell: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-  },
+  iconCell: { width: 44, height: 44, borderWidth: 2 },
   iconText: { fontSize: 22 },
-  colorRing: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.pill,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  colorRing: { width: 40, height: 40, borderWidth: 2 },
   colorDot: { width: 28, height: 28, borderRadius: Radius.pill },
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  switchRow: { gap: Spacing.three },
 });

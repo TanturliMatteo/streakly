@@ -1,6 +1,7 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
+import { Common } from '@/constants/styles';
 import { Alpha, Radius, Spacing, withAlpha } from '@/constants/theme';
 import { formatTime } from '@/lib/dates';
 import { logTap } from '@/lib/debug-log';
@@ -9,57 +10,57 @@ import { useHabit } from '@/lib/habits-store';
 
 import { HistoryCalendar, StatTile, WeeklyBars } from './habit-charts';
 import { PressableScale } from './motion';
-import { ScreenHeader } from './screen-header';
+import { Screen } from './screen';
 import { Card, IconBubble, PageScroll, Txt } from './ui';
 
-/** Habit info: stats, weekly chart and history calendar. */
-export function HabitDetailScreen({ id }: { id: string }) {
+/** Habit info page (`/habit/[id]`): stats, weekly chart and history calendar. */
+export function HabitDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { habit, log, today, setStatus } = useHabit(id);
 
-  if (!habit) return <ScreenHeader />;
+  if (!habit) return <Screen />;
 
+  const frequency = describeFrequency(habit);
   const stats = getStats(habit, log, today);
-  const reminderText = habit.reminder.enabled
-    ? `${habit.reminder.times.map((t) => formatTime(t.hour, t.minute)).join(', ')} · ${describeFrequency(habit)}`
+  const reminders = habit.reminder.enabled
+    ? `${habit.reminder.times.map((t) => formatTime(t.hour, t.minute)).join(', ')} · ${frequency}`
     : 'Off';
 
   return (
-    <>
-      <ScreenHeader
-        right={
-          <PressableScale
-            scaleTo={0.9}
-            hitSlop={8}
-            onPress={() => {
-              logTap('edit habit');
-              router.push({ pathname: '/edit/[id]', params: { id: habit.id } });
-            }}
-            style={[styles.editButton, { backgroundColor: withAlpha(habit.color, Alpha.soft) }]}>
-            <Txt variant="bodyStrong" color={habit.color}>
-              Edit
-            </Txt>
-          </PressableScale>
-        }
-      />
+    <Screen
+      right={
+        <PressableScale
+          scaleTo={0.9}
+          hitSlop={8}
+          onPress={() => {
+            logTap('edit habit');
+            router.push({ pathname: '/edit/[id]', params: { id: habit.id } });
+          }}
+          style={[styles.edit, { backgroundColor: withAlpha(habit.color, Alpha.soft) }]}>
+          <Txt variant="bodyStrong" color={habit.color}>
+            Edit
+          </Txt>
+        </PressableScale>
+      }>
       <PageScroll>
         <View style={styles.hero}>
           <IconBubble icon={habit.icon} color={habit.color} size={84} />
-          <Txt variant="title" style={styles.centered}>
+          <Txt variant="title" style={Common.textCenter}>
             {habit.name}
           </Txt>
           {!!habit.description && (
-            <Txt tone="textSecondary" style={[styles.centered, styles.regular]}>
+            <Txt tone="textSecondary" style={[Common.textCenter, styles.regular]}>
               {habit.description}
             </Txt>
           )}
         </View>
 
         <Card style={styles.info}>
-          <InfoRow label="Frequency" value={describeFrequency(habit)} />
-          <InfoRow label="Reminders" value={reminderText} />
+          <InfoRow label="Frequency" value={frequency} />
+          <InfoRow label="Reminders" value={reminders} />
         </Card>
 
-        <View style={styles.stats}>
+        <View style={[Common.row, styles.stats]}>
           <StatTile value={`${stats.currentStreak}`} label="Streak 🔥" color={habit.color} />
           <StatTile value={`${stats.bestStreak}`} label="Best" color={habit.color} />
           <StatTile
@@ -76,18 +77,18 @@ export function HabitDetailScreen({ id }: { id: string }) {
           log={log}
           today={today}
           onToggleDay={(key, state) => {
-            if (state === 'done') setStatus(habit.id, key, key === today ? null : 'missed');
-            else setStatus(habit.id, key, 'done');
+            if (state !== 'done') setStatus(habit.id, key, 'done');
+            else setStatus(habit.id, key, key === today ? null : 'missed');
           }}
         />
       </PageScroll>
-    </>
+    </Screen>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.infoRow}>
+    <View style={[Common.spread, styles.infoRow]}>
       <Txt tone="textSecondary">{label}</Txt>
       <Txt numberOfLines={2} style={styles.infoValue}>
         {value}
@@ -97,17 +98,11 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  editButton: {
-    height: 36,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Radius.pill,
-    justifyContent: 'center',
-  },
+  edit: { justifyContent: 'center', height: 36, paddingHorizontal: Spacing.three, borderRadius: Radius.pill },
   hero: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.two },
-  centered: { textAlign: 'center' },
   regular: { fontWeight: '400' },
   info: { gap: Spacing.two },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.three },
+  infoRow: { gap: Spacing.three },
   infoValue: { flexShrink: 1, textAlign: 'right' },
-  stats: { flexDirection: 'row', gap: Spacing.two },
+  stats: { gap: Spacing.two },
 });

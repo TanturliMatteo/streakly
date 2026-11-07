@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 
+import { Common } from '@/constants/styles';
 import { Alpha, Radius, Spacing, Type, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatTime } from '@/lib/dates';
@@ -69,7 +70,7 @@ function Wheel({
             <Pressable
               key={v}
               onPress={() => ref.current?.scrollTo({ y: i * ITEM_HEIGHT, animated: true })}
-              style={styles.item}>
+              style={[Common.center, styles.item]}>
               <Txt
                 tone={distance === 0 ? 'text' : 'textSecondary'}
                 style={[
@@ -114,10 +115,10 @@ export function TimeWheel({
 
   if (!expanded) {
     return (
-      <Animated.View entering={Motion.fadeIn} style={[styles.collapsed, surface]}>
+      <Animated.View entering={Motion.fadeIn} style={[Common.row, styles.collapsed, surface]}>
         <PressableScale
           scaleTo={0.97}
-          style={styles.collapsedMain}
+          style={[Common.flex, Common.row, styles.collapsedMain]}
           accessibilityLabel={`Reminder at ${label}, tap to change`}
           onPress={() => {
             logTap(`open time picker (${label})`);
@@ -148,7 +149,7 @@ export function TimeWheel({
 
   return (
     <Animated.View entering={Motion.fadeIn} style={[styles.expanded, surface]}>
-      <View style={styles.row}>
+      <View style={[Common.row, styles.wheels]}>
         <Wheel
           values={HOURS}
           value={value.hour}
@@ -169,7 +170,7 @@ export function TimeWheel({
           logTap(`time picker done → ${label}`);
           onExpandedChange(false);
         }}
-        style={[styles.done, { backgroundColor: color }]}>
+        style={[Common.circle, styles.done, { backgroundColor: color }]}>
         <Txt variant="bodyStrong" tone="onAccent">
           Done · {label}
         </Txt>
@@ -179,7 +180,7 @@ export function TimeWheel({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
+  wheels: { justifyContent: 'center', gap: Spacing.two },
   wheel: { width: 72, height: ITEM_HEIGHT * VISIBLE_ITEMS },
   wheelContent: { paddingVertical: PADDING },
   highlight: {
@@ -190,25 +191,20 @@ const styles = StyleSheet.create({
     height: ITEM_HEIGHT,
     borderRadius: Radius.pill,
   },
-  item: { height: ITEM_HEIGHT, alignItems: 'center', justifyContent: 'center' },
+  item: { height: ITEM_HEIGHT },
   itemText: { ...Type.stat, fontWeight: '700' },
   collapsed: {
-    flexDirection: 'row',
-    alignItems: 'center',
     borderRadius: Radius.pill,
     paddingLeft: Spacing.four,
     paddingRight: Spacing.two,
     height: 56,
   },
   collapsedMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
     height: '100%',
     paddingRight: Spacing.two,
   },
   collapsedTime: { fontSize: 24 },
   expanded: { borderRadius: Radius.card, padding: Spacing.two, gap: Spacing.two },
-  done: { height: 44, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  done: { height: 44 },
 });

@@ -3,6 +3,7 @@ import { useState, type ComponentProps } from 'react';
 import { ScrollView, StyleSheet, Text, View, type ScrollViewProps, type TextProps } from 'react-native';
 import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 
+import { Common } from '@/constants/styles';
 import {
   Alpha,
   CardPadding,
@@ -21,6 +22,8 @@ import type { Weekday } from '@/lib/types';
 
 import { colorTransition, Duration, PressableScale, transition } from './motion';
 
+// ─── Text & layout ──────────────────────────────────────────────────────────
+
 /** Themed text: a type style + a theme colour (or an explicit `color`). */
 export function Txt({
   variant = 'body',
@@ -33,7 +36,7 @@ export function Txt({
   return <Text style={[Type[variant], { color: color ?? theme[tone] }, style]} {...rest} />;
 }
 
-/** Vertical page with the standard padding / spacing / max width. */
+/** Vertical page with the standard padding, spacing and max width. */
 export function PageScroll({ children, ...rest }: ScrollViewProps) {
   return (
     <ScrollView keyboardShouldPersistTaps="handled" {...rest} contentContainerStyle={styles.page}>
@@ -62,15 +65,55 @@ export function IconBubble({ icon, color, size = 48 }: { icon: string; color: st
   return (
     <Animated.View
       style={[
-        styles.bubble,
-        { width: size, height: size, backgroundColor: withAlpha(color, Alpha.soft) },
+        Common.circle,
         colorTransition,
+        { width: size, height: size, backgroundColor: withAlpha(color, Alpha.soft) },
       ]}>
       {/* key: a new icon pops in */}
       <Animated.Text key={icon} entering={ZoomIn.duration(Duration.fast)} style={{ fontSize: size * 0.48 }}>
         {icon}
       </Animated.Text>
     </Animated.View>
+  );
+}
+
+// ─── Buttons ────────────────────────────────────────────────────────────────
+
+/** Full-width pill button: `solid` (accent fill) or `soft` (tinted). */
+export function PrimaryButton({
+  label,
+  onPress,
+  color,
+  disabled,
+  variant = 'solid',
+}: {
+  label: string;
+  onPress: () => void;
+  color?: string;
+  disabled?: boolean;
+  variant?: 'solid' | 'soft';
+}) {
+  const theme = useTheme();
+  const accent = color ?? theme.tint;
+  const solid = variant === 'solid';
+  return (
+    <PressableScale
+      onPress={() => {
+        logTap(`button "${label}"`);
+        onPress();
+      }}
+      disabled={disabled}
+      scaleTo={0.97}
+      style={[
+        Common.circle,
+        styles.primary,
+        colorTransition,
+        { backgroundColor: solid ? accent : withAlpha(accent, Alpha.soft), opacity: disabled ? 0.4 : 1 },
+      ]}>
+      <Txt variant="button" color={solid ? theme.onAccent : accent}>
+        {label}
+      </Txt>
+    </PressableScale>
   );
 }
 
@@ -109,7 +152,7 @@ export function RoundButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       style={[
-        styles.round,
+        Common.circle,
         {
           width: size,
           height: size,
@@ -117,13 +160,14 @@ export function RoundButton({
           opacity: disabled ? 0.3 : 1,
         },
       ]}>
-      <Text style={{ color: theme[tone], fontSize: glyphSize, lineHeight: glyphSize + 2, fontWeight: '600' }}>
+      <Txt tone={tone} style={{ fontSize: glyphSize, lineHeight: glyphSize + 2 }}>
         {glyph}
-      </Text>
+      </Txt>
     </PressableScale>
   );
 }
 
+/** Round check: empty ring → filled accent circle with a popping ✓. */
 export function CheckButton({
   done,
   color,
@@ -148,6 +192,7 @@ export function CheckButton({
       accessibilityRole="checkbox"
       accessibilityState={{ checked: done }}
       style={[
+        Common.circle,
         styles.check,
         colorTransition,
         { borderColor: done ? color : theme.textMuted, backgroundColor: done ? color : 'transparent' },
@@ -163,6 +208,8 @@ export function CheckButton({
     </PressableScale>
   );
 }
+
+// ─── Pickers ────────────────────────────────────────────────────────────────
 
 /** Segmented control with a pill that slides to the selected option. */
 export function Segmented<T extends string>({
@@ -193,12 +240,12 @@ export function Segmented<T extends string>({
           pointerEvents="none"
           style={[
             styles.segmentPill,
+            transition(['transform', 'backgroundColor'], Duration.base),
             {
               width: segmentWidth,
               backgroundColor: color ?? theme.tint,
               transform: [{ translateX: index * segmentWidth }],
             },
-            transition(['transform', 'backgroundColor'], Duration.base),
           ]}
         />
       )}
@@ -210,7 +257,7 @@ export function Segmented<T extends string>({
             logTap(`segment "${o.label}"`);
             onChange(o.value);
           }}
-          style={styles.segment}>
+          style={[Common.flex, Common.center, styles.segment]}>
           <Txt variant="label" tone={o.value === value ? 'onAccent' : 'text'}>
             {o.label}
           </Txt>
@@ -233,7 +280,7 @@ export function WeekdayPicker({
   const theme = useTheme();
   const accent = color ?? theme.tint;
   return (
-    <View style={styles.weekRow}>
+    <View style={Common.spread}>
       {WEEK_ORDER.map((d) => {
         const selected = value.includes(d);
         return (
@@ -247,6 +294,7 @@ export function WeekdayPicker({
               onChange(selected ? value.filter((x) => x !== d) : [...value, d]);
             }}
             style={[
+              Common.circle,
               styles.day,
               colorTransition,
               { backgroundColor: selected ? accent : theme.backgroundSelected },
@@ -261,62 +309,23 @@ export function WeekdayPicker({
   );
 }
 
-export function PrimaryButton({
-  label,
-  onPress,
-  color,
-  disabled,
-  variant = 'solid',
-}: {
-  label: string;
-  onPress: () => void;
-  color?: string;
-  disabled?: boolean;
-  variant?: 'solid' | 'soft';
-}) {
-  const theme = useTheme();
-  const accent = color ?? theme.tint;
-  const solid = variant === 'solid';
-  return (
-    <PressableScale
-      onPress={() => {
-        logTap(`button "${label}"`);
-        onPress();
-      }}
-      disabled={disabled}
-      scaleTo={0.97}
-      style={[
-        styles.primary,
-        colorTransition,
-        { backgroundColor: solid ? accent : withAlpha(accent, Alpha.soft), opacity: disabled ? 0.4 : 1 },
-      ]}>
-      <Txt variant="button" color={solid ? theme.onAccent : accent}>
-        {label}
-      </Txt>
-    </PressableScale>
-  );
-}
-
 const SEGMENT_PADDING = 4;
-
-const center = { alignItems: 'center', justifyContent: 'center' } as const;
 
 const styles = StyleSheet.create({
   page: {
-    padding: Spacing.three,
-    gap: Spacing.three,
-    paddingBottom: Spacing.six,
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
+    gap: Spacing.three,
+    padding: Spacing.three,
+    paddingBottom: Spacing.six,
   },
-  card: { borderRadius: Radius.card, padding: CardPadding, borderCurve: 'continuous' },
+  card: { padding: CardPadding, borderRadius: Radius.card, borderCurve: 'continuous' },
   sectionLabel: { marginBottom: Spacing.two },
-  bubble: { borderRadius: Radius.pill, ...center },
-  round: { borderRadius: Radius.pill, ...center },
-  check: { width: 40, height: 40, borderRadius: Radius.pill, borderWidth: 2, ...center },
+  primary: { height: 52 },
+  check: { width: 40, height: 40, borderWidth: 2 },
   checkMark: { fontSize: 20, fontWeight: '800', lineHeight: 22 },
-  segmented: { flexDirection: 'row', borderRadius: Radius.pill, padding: SEGMENT_PADDING },
+  segmented: { flexDirection: 'row', padding: SEGMENT_PADDING, borderRadius: Radius.pill },
   segmentPill: {
     position: 'absolute',
     top: SEGMENT_PADDING,
@@ -324,8 +333,6 @@ const styles = StyleSheet.create({
     left: SEGMENT_PADDING,
     borderRadius: Radius.pill,
   },
-  segment: { flex: 1, height: 34, borderRadius: Radius.pill, ...center },
-  weekRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  day: { width: 38, height: 38, borderRadius: Radius.pill, ...center },
-  primary: { height: 52, borderRadius: Radius.pill, ...center },
+  segment: { height: 34, borderRadius: Radius.pill },
+  day: { width: 38, height: 38 },
 });

@@ -45,11 +45,25 @@ export function backfill(habit: Habit, log: HabitLog, today: string): HabitLog {
   return next ?? log;
 }
 
-export type HabitStats = {
+/**
+ * Consecutive "done" days ending today (or yesterday, if today isn't checked yet).
+ * Same result as `getStats(...).currentStreak`, but walks back only as far as the streak goes,
+ * so it's cheap enough to run on every home-screen card.
+ */
+export function currentStreak(habit: Habit, log: HabitLog, today: string): number {
+  let streak = 0;
+  for (let d = fromKey(today); ; d = addDays(d, -1)) {
+    const state = dayState(habit, log, toKey(d), today);
+    if (state === 'done') streak++;
+    else if (state === 'missed' || state === 'before') return streak;
+    // 'off' and 'pending' (today, not yet done) don't break the streak.
+  }
+}
+
+type HabitStats = {
   currentStreak: number;
   bestStreak: number;
   completionRate: number; // 0–1
-  totalDone: number;
 };
 
 export function getStats(habit: Habit, log: HabitLog, today: string): HabitStats {
@@ -78,7 +92,6 @@ export function getStats(habit: Habit, log: HabitLog, today: string): HabitStats
     currentStreak: run,
     bestStreak: best,
     completionRate: done + missed === 0 ? 0 : done / (done + missed),
-    totalDone: done,
   };
 }
 

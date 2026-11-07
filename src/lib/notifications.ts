@@ -19,15 +19,7 @@ Notifications.setNotificationHandler({
 
 export const notificationsSupported = true;
 
-/** Runs a native call and labels any failure with the step it happened in. */
-async function step<T>(name: string, fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    throw new Error(`[${name}] ${message}`);
-  }
-}
+const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** Whether our own Android channel is known to exist; otherwise expo's default channel is used. */
 let channelReady = false;
@@ -48,62 +40,72 @@ async function ensureChannel() {
     });
     channelReady = true;
   } catch (e) {
-    logEvent('error', `channel setup failed (using default channel): ${String(e)}`);
+    logEvent('error', `channel setup failed (using default channel): ${errorText(e)}`);
   }
 }
 
-/** Creates the Android channel and asks for permission. */
-async function ensureNotificationPermission(): Promise<boolean> {
+/** Creates the Android channel, then asks for permission if needed. Throws `[permission] …`. */
+async function ensurePermission(): Promise<boolean> {
   await ensureChannel();
-  const current = await step('permission', () => Notifications.getPermissionsAsync());
-  if (current.granted) return true;
-  if (!current.canAskAgain) return false;
-  const requested = await step('permission', () => Notifications.requestPermissionsAsync());
-  return requested.granted || requested.ios?.status === IosAuthorizationStatus.PROVISIONAL;
+  try {
+    const current = await Notifications.getPermissionsAsync();
+    if (current.granted) return true;
+    if (!current.canAskAgain) return false;
+    const requested = await Notifications.requestPermissionsAsync();
+    return requested.granted || requested.ios?.status === IosAuthorizationStatus.PROVISIONAL;
+  } catch (e) {
+    throw new Error(`[permission] ${errorText(e)}`);
+  }
 }
 
 /**
- * Schedules one weekly repeating notification per (reminder day × time).
- * Never throws: on failure returns the ids scheduled so far plus an error message.
+ * Schedules one weekly repeating notification per (habit day × reminder time), all in parallel.
+ * Never throws: returns the ids that were scheduled, plus an error message if any failed.
  */
 export async function scheduleHabitReminders(habit: Habit): Promise<ScheduleResult> {
-  if (!habit.reminder.enabled || habit.reminder.times.length === 0) return { ids: [] };
+  const { enabled, times } = habit.reminder;
+  if (!enabled || times.length === 0) return { ids: [] };
 
-  const ids: string[] = [];
   try {
-    if (!(await ensureNotificationPermission())) {
-      return { ids, error: 'Notifications are turned off for this app. Enable them in Settings.' };
+    if (!(await ensurePermission())) {
+      return { ids: [], error: 'Notifications are turned off for this app. Enable them in Settings.' };
     }
-    for (const day of habitDays(habit)) {
-      for (const { hour, minute } of habit.reminder.times) {
-        const id = await step('schedule', () =>
-          Notifications.scheduleNotificationAsync({
-            content: {
-              title: `${habit.icon}  ${habit.name}`,
-              body: habit.description || 'Time for your habit. Keep the streak going!',
-              data: { habitId: habit.id },
-            },
-            trigger: {
-              type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-              weekday: day + 1, // expo: 1 = Sunday … 7 = Saturday
-              hour,
-              minute,
-              ...(channelReady ? { channelId: CHANNEL_ID } : null),
-            },
-          }),
-        );
-        ids.push(id);
-      }
-    }
-    logEvent(
-      'action',
-      `scheduled ${ids.length} reminder(s) for "${habit.name}" (channel: ${channelReady ? CHANNEL_ID : 'default'})`,
-    );
-    return { ids };
   } catch (e) {
-    logEvent('error', `failed to schedule reminders after ${ids.length}: ${String(e)}`);
-    return { ids, error: e instanceof Error ? e.message : String(e) };
+    logEvent('error', `reminder permission failed: ${errorText(e)}`);
+    return { ids: [], error: errorText(e) };
   }
+
+  const results = await Promise.allSettled(
+    habitDays(habit).flatMap((day) =>
+      times.map(({ hour, minute }) =>
+        Notifications.scheduleNotificationAsync({
+          content: {
+            title: `${habit.icon}  ${habit.name}`,
+            body: habit.description || 'Time for your habit. Keep the streak going!',
+            data: { habitId: habit.id },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday: day + 1, // expo: 1 = Sunday … 7 = Saturday
+            hour,
+            minute,
+            ...(channelReady ? { channelId: CHANNEL_ID } : null),
+          },
+        }),
+      ),
+    ),
+  );
+
+  const ids = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+  const failure = results.find((r) => r.status === 'rejected');
+  if (failure) {
+    const error = `[schedule] ${errorText(failure.reason)}`;
+    logEvent('error', `scheduled ${ids.length}/${results.length} reminders for "${habit.name}": ${error}`);
+    return { ids, error };
+  }
+  const channel = channelReady ? CHANNEL_ID : 'default';
+  logEvent('action', `scheduled ${ids.length} reminder(s) for "${habit.name}" (channel: ${channel})`);
+  return { ids };
 }
 
 export async function cancelReminders(ids: string[]) {

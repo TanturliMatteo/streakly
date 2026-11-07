@@ -1,19 +1,17 @@
 /**
- * Root of every pushed screen, and the slide transition itself.
+ * `<Screen>`: the shell of every pushed page (habit info, new habit, edit habit).
  *
- * Screens are presented over the previous one (`transparentModal`, no native animation), so the
- * page underneath stays fully loaded and visible. This frame then:
- * - slides in from the right when it opens;
- * - on back (‹ button, Android back, swipe right) slides out to the right *first*, while still
- *   fully rendered, and only once it is off-screen lets the navigator actually remove it.
- * So you always see two complete pages, never a blank one. Open, close and swipe-back all use
- * the same duration and curve (`Duration.page`, `Ease`).
- *
- * Only `transform: translateX` is animated (the fast path), so it stays smooth.
+ * - Slide transition: pages are presented over the previous one (`transparentModal`, no native
+ *   animation), so the page below stays loaded and visible. The page slides in from the right;
+ *   on back (‹ button, Android back, swipe right) it slides out to the right *first*, while still
+ *   fully rendered, and only once off-screen lets the navigator remove it. Open, close and
+ *   swipe-back share one duration and curve. Only `translateX` is animated (fast path).
+ * - Header: round back button, centred title, optional right action.
+ * - Keyboard: content moves up so inputs stay visible.
  */
-import { useNavigation, usePreventRemove } from 'expo-router';
+import { router, useNavigation, usePreventRemove } from 'expo-router';
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { KeyboardAvoidingView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   LayoutAnimationConfig,
@@ -22,12 +20,16 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
+import { Common } from '@/constants/styles';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { logEvent } from '@/lib/debug-log';
 
 import { Duration, Ease, Springs } from './motion';
+import { RoundButton, Txt } from './ui';
 
 const SLIDE = { duration: Duration.page, easing: Ease };
 const CLOSE_FRACTION = 0.33; // swipe past a third of the screen…
@@ -35,8 +37,17 @@ const CLOSE_VELOCITY = 800; // …or flick to close
 
 type NavigationAction = Parameters<NonNullable<Parameters<typeof usePreventRemove>[1]>>[0]['data']['action'];
 
-export function ScreenFrame({ children }: { children: ReactNode }) {
+export function Screen({
+  title,
+  right,
+  children,
+}: {
+  title?: string;
+  right?: ReactNode;
+  children?: ReactNode;
+}) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { width: W } = useWindowDimensions();
   const navigation = useNavigation();
   const x = useSharedValue(W); // 0 = on screen, W = off to the right
@@ -84,7 +95,22 @@ export function ScreenFrame({ children }: { children: ReactNode }) {
     <LayoutAnimationConfig skipExiting>
       <GestureDetector gesture={swipe}>
         <Animated.View style={[styles.page, { backgroundColor: theme.background }, slideStyle]}>
-          {children}
+          <KeyboardAvoidingView behavior="padding" style={Common.flex}>
+            <View style={[Common.row, styles.header, { paddingTop: insets.top + Spacing.two }]}>
+              <RoundButton
+                glyph="‹"
+                glyphSize={28}
+                accessibilityLabel="Back"
+                logLabel={`back from "${title ?? 'screen'}"`}
+                onPress={() => router.back()}
+              />
+              <Txt variant="heading" numberOfLines={1} style={[Common.flex, Common.textCenter]}>
+                {title}
+              </Txt>
+              <View style={styles.right}>{right}</View>
+            </View>
+            {children}
+          </KeyboardAvoidingView>
         </Animated.View>
       </GestureDetector>
     </LayoutAnimationConfig>
@@ -95,10 +121,16 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     // soft edge shadow so the page reads as sliding over the one below
+    elevation: 16,
     shadowColor: '#000',
+    shadowOffset: { width: -4, height: 0 },
     shadowOpacity: 0.18,
     shadowRadius: 16,
-    shadowOffset: { width: -4, height: 0 },
-    elevation: 16,
   },
+  header: {
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
+  right: { minWidth: 40, alignItems: 'flex-end' },
 });

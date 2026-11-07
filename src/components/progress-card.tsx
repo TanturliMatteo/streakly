@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
+import { Common } from '@/constants/styles';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -30,7 +31,10 @@ export function ProgressCard({ label, done, due }: { label: string; done: number
 
   return (
     <Card entering={Motion.stagger(0)} style={styles.card}>
-      <Animated.View key={`${label}|${countKey}`} entering={Motion.fadeIn} style={styles.row}>
+      <Animated.View
+        key={`${label}|${countKey}`}
+        entering={Motion.fadeIn}
+        style={[Common.spread, styles.row]}>
         <Txt variant="bodyStrong" style={styles.label} numberOfLines={1}>
           {label}
         </Txt>
@@ -47,7 +51,7 @@ export function ProgressCard({ label, done, due }: { label: string; done: number
 
 const styles = StyleSheet.create({
   card: { gap: Spacing.two },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.two },
+  row: { gap: Spacing.two },
   label: { flexShrink: 1 },
   track: { height: 10, borderRadius: Radius.pill, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: Radius.pill },
