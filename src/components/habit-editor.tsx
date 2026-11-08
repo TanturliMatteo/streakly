@@ -6,6 +6,7 @@ import { useHabit, useHabits } from '@/lib/habits-store';
 
 import { HabitForm, showReminderError } from './habit-form';
 import { Duration } from './motion';
+import { HabitNotFound } from './notice';
 import { Screen } from './screen';
 import { PrimaryButton } from './ui';
 
@@ -32,12 +33,14 @@ export function NewHabitScreen() {
 /** "Edit habit" page (`/edit/[id]`). */
 export function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { habit, updateHabit, deleteHabit } = useHabit(id);
+  const { habit, ready, updateHabit, deleteHabit } = useHabit(id);
   const theme = useTheme();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <Screen title="Edit habit">
+      {/* Deleting removes the habit only after this page has slid away, so this never flashes then. */}
+      {!habit && ready && <HabitNotFound />}
       {habit && (
         <HabitForm
           initial={habit}

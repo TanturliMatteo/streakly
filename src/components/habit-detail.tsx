@@ -9,6 +9,7 @@ import { describeFrequency, getStats, weeklyRates } from '@/lib/habit-utils';
 import { useHabit } from '@/lib/habits-store';
 
 import { HistoryCalendar, StatTile, WeeklyBars } from './habit-charts';
+import { HabitNotFound } from './notice';
 import { PressableScale } from './motion';
 import { Screen } from './screen';
 import { Card, IconBubble, PageScroll, Txt } from './ui';
@@ -16,9 +17,10 @@ import { Card, IconBubble, PageScroll, Txt } from './ui';
 /** Habit info page (`/habit/[id]`): stats, weekly chart and history calendar. */
 export function HabitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { habit, log, today, setStatus } = useHabit(id);
+  const { habit, log, today, ready, setStatus } = useHabit(id);
 
-  if (!habit) return <Screen />;
+  // Unknown id (old link, deep link to a deleted habit): say so instead of a blank page.
+  if (!habit) return <Screen>{ready && <HabitNotFound />}</Screen>;
 
   const frequency = describeFrequency(habit);
   const stats = getStats(habit, log, today);

@@ -1,12 +1,12 @@
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { HabitCard } from '@/components/habit-card';
+import { HabitList } from '@/components/habit-list';
+import { Notice } from '@/components/notice';
 import { Motion, PressableScale } from '@/components/motion';
 import { ProgressCard } from '@/components/progress-card';
-import { Card, PageScroll, PrimaryButton, Txt } from '@/components/ui';
+import { Card, PageScroll, PrimaryButton, RoundButton, Txt } from '@/components/ui';
 import { Common } from '@/constants/styles';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -20,7 +20,7 @@ const openNewHabit = () => router.push('/new');
 /** Home: today's date, progress, and one card per habit (due today first, rest days last). */
 export default function TodayScreen() {
   const theme = useTheme();
-  const { habits, logs, today, ready, setStatus } = useHabits();
+  const { habits, logs, today, ready, loadIssue, setStatus, reorderHabits, deleteHabit } = useHabits();
   const date = fromKey(today);
 
   // One pass: today's state per habit, plus the counts for the progress card.
@@ -54,6 +54,14 @@ export default function TodayScreen() {
             </Txt>
             <Txt variant="largeTitle">Today</Txt>
           </View>
+          <RoundButton
+            glyph="⚙︎"
+            size={48}
+            glyphSize={24}
+            accessibilityLabel="Settings"
+            logLabel="settings"
+            onPress={() => router.push('/settings')}
+          />
           <PressableScale
             scaleTo={0.88}
             accessibilityLabel="New habit"
@@ -70,6 +78,21 @@ export default function TodayScreen() {
 
         <ProgressCard label={progressLabel} done={done} due={due} />
 
+        {loadIssue === 'unreadable' && (
+          <Notice
+            icon="⚠️"
+            title="Couldn’t load your habits"
+            message="Your saved data wasn’t changed. Close and reopen the app to try again. Changes made now won’t be saved."
+          />
+        )}
+        {loadIssue === 'repaired' && (
+          <Notice
+            icon="🛠️"
+            title="Some saved data was damaged"
+            message="It was repaired where possible, and a copy of the original was kept on this device."
+          />
+        )}
+
         {ready && habits.length === 0 && (
           <Card entering={Motion.enter} style={styles.empty}>
             <Txt style={styles.emptyIcon}>🌱</Txt>
@@ -83,24 +106,21 @@ export default function TodayScreen() {
           </Card>
         )}
 
-        {items.map(({ habit, state }, index) => (
-          <Animated.View key={habit.id} entering={Motion.stagger(index + 1)} exiting={Motion.exit}>
-            <HabitCard
-              habit={habit}
-              log={logs[habit.id] ?? {}}
-              today={today}
-              state={state}
-              onToggle={() => setStatus(habit.id, today, state === 'done' ? null : 'done')}
-            />
-          </Animated.View>
-        ))}
+        <HabitList
+          items={items}
+          logs={logs}
+          today={today}
+          onToggle={({ habit, state }) => setStatus(habit.id, today, state === 'done' ? null : 'done')}
+          onReorder={reorderHabits}
+          onDelete={(habit) => deleteHabit(habit.id)}
+        />
       </PageScroll>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { paddingVertical: Spacing.two },
+  header: { paddingVertical: Spacing.two, gap: Spacing.two },
   date: { textTransform: 'uppercase', letterSpacing: 0.5 },
   add: { width: 48, height: 48 },
   addGlyph: { fontSize: 28, fontWeight: '500', lineHeight: 32 },

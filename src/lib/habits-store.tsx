@@ -3,20 +3,35 @@ import { AppState } from 'react-native';
 
 import { logEvent } from './debug-log';
 import { toKey } from './dates';
+import { updateWidgets } from '@/widgets/sync';
+import { setWidgetToggleHandler } from '@/widgets/bridge';
+
+import { withStatus } from './habit-data';
 import { backfill, dayState, newId } from './habit-utils';
 import { cancelReminders, scheduleHabitReminders } from './notifications';
+import { useSettings } from './settings-store';
 import { loadItem, saveItem } from './storage';
-import type { DayStatus, Habit, HabitInput, HabitLog } from './types';
+import { HABITS_KEY } from './storage-keys';
+import type { DayStatus, Habit, HabitInput, ScheduleResult } from './types';
+import { parseHabitsData, type HabitsData } from './validate';
 
-const STORAGE_KEY = 'habits-app/v1';
+const STORAGE_KEY = HABITS_KEY;
 
-type Data = { habits: Habit[]; logs: Record<string, HabitLog> };
+type Data = HabitsData;
+
+/**
+ * Problem found while loading:
+ * - `repaired`: some stored data was invalid and was fixed or dropped (the original is backed up).
+ * - `unreadable`: storage couldn't be read; saving is disabled for this session to protect it.
+ */
+export type LoadIssue = 'repaired' | 'unreadable';
 
 /** The habit is always saved; `reminderError` is set if its notifications could not be scheduled. */
 export type SaveResult = { reminderError?: string };
 
 type HabitsContextValue = Data & {
   ready: boolean;
+  loadIssue: LoadIssue | null;
   /** Today's date key; updates at midnight and when the app returns to foreground. */
   today: string;
   addHabit: (input: HabitInput) => Promise<SaveResult>;
@@ -24,18 +39,18 @@ type HabitsContextValue = Data & {
   deleteHabit: (id: string) => Promise<void>;
   /** `null` clears the entry (only meaningful for today; past days get back-filled as missed). */
   setStatus: (id: string, dateKey: string, status: DayStatus | null) => void;
+  /**
+   * New order for some habits (e.g. one group of the home list). They swap places among the
+   * slots they already occupy, so habits not in `ids` keep their positions.
+   */
+  reorderHabits: (ids: string[]) => void;
+  /** Master switch: cancels every reminder, or schedules them all again. */
+  setRemindersEnabled: (enabled: boolean) => Promise<SaveResult>;
   /** Increments each time a status change completes every habit due today (drives the confetti). */
   celebration: number;
 };
 
 const HabitsContext = createContext<HabitsContextValue | null>(null);
-
-function withStatus(data: Data, id: string, dateKey: string, status: DayStatus | null): Data {
-  const log = { ...(data.logs[id] ?? {}) };
-  if (status) log[dateKey] = status;
-  else delete log[dateKey];
-  return { ...data, logs: { ...data.logs, [id]: log } };
-}
 
 /** True when at least one habit is due today and every due habit is done. */
 function allDoneToday(data: Data, today: string) {
@@ -63,14 +78,58 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [today, setToday] = useState(() => toKey(new Date()));
   const [celebration, setCelebration] = useState(0);
+  const [loadIssue, setLoadIssue] = useState<LoadIssue | null>(null);
+  const { settings, updateSettings } = useSettings();
+
+  /** Schedules a habit's reminders, unless they are switched off for the whole app. */
+  const schedule = async (habit: Habit): Promise<ScheduleResult> =>
+    settings.reminders ? scheduleHabitReminders(habit) : { ids: [] };
 
   // Load once. Unchecked scheduled days from the past become "not done".
+  // Stored data is validated; anything that has to be repaired or can't be read is first copied
+  // to a backup key, so the user's data is never overwritten without a copy.
   useEffect(() => {
-    loadItem(STORAGE_KEY)
-      .then((raw) => {
-        if (raw) setData(backfillAll(JSON.parse(raw) as Data, toKey(new Date())));
+    async function load() {
+      let raw: string | null;
+      try {
+        raw = await loadItem(STORAGE_KEY);
+      } catch (e) {
+        // Storage itself failed: don't save anything this session, or we'd overwrite real data.
+        logEvent('error', `reading habits failed, saving disabled: ${String(e)}`);
+        setLoadIssue('unreadable');
+        return;
+      }
+      if (!raw) return;
+
+      const todayKey = toKey(new Date());
+      let parsed: Data | null = null;
+      let problems: string[];
+      try {
+        const result = parseHabitsData(raw, todayKey);
+        parsed = result.value;
+        problems = result.problems;
+      } catch (e) {
+        problems = [`unusable data: ${String(e)}`];
+      }
+      if (problems.length > 0) {
+        problems.forEach((p) => logEvent('error', `loading habits: ${p}`));
+        try {
+          await saveItem(`${STORAGE_KEY}/backup-${Date.now()}`, raw);
+        } catch (e) {
+          logEvent('error', `backing up damaged habits failed, saving disabled: ${String(e)}`);
+          setLoadIssue('unreadable');
+          return;
+        }
+        setLoadIssue('repaired');
+      }
+      if (parsed) setData(backfillAll(parsed, todayKey));
+    }
+
+    load()
+      .catch((e) => {
+        logEvent('error', `loading habits failed, saving disabled: ${String(e)}`);
+        setLoadIssue('unreadable');
       })
-      .catch((e) => console.warn('Failed to load habits', e))
       .finally(() => setReady(true));
   }, []);
 
@@ -91,15 +150,33 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     };
   }, [today]);
 
-  // Persist.
+  // Persist (never after a failed read: the stored data may still be intact), then refresh the
+  // home-screen widgets with the saved data (also when the theme changes).
+  const canSave = ready && loadIssue !== 'unreadable';
+  const theme = settings.theme;
   useEffect(() => {
-    if (ready) saveItem(STORAGE_KEY, JSON.stringify(data)).catch((e) => console.warn(e));
-  }, [data, ready]);
+    if (!canSave) return;
+    saveItem(STORAGE_KEY, JSON.stringify(data))
+      .then(() => updateWidgets(data, theme))
+      .catch((e) => logEvent('error', `saving habits failed: ${String(e)}`));
+  }, [data, canSave, theme]);
+
+  // While the app is running, a widget's check goes through the app's state (one source of truth:
+  // otherwise the app would later overwrite the widget's change with its older copy).
+  useEffect(() => {
+    if (!canSave) return;
+    setWidgetToggleHandler((id) => {
+      if (!data.habits.some((h) => h.id === id)) return;
+      logEvent('action', `widget check ${id}`);
+      setStatus(id, today, data.logs[id]?.[today] === 'done' ? null : 'done');
+    });
+    return () => setWidgetToggleHandler(null);
+  });
 
   async function addHabit(input: HabitInput): Promise<SaveResult> {
     const draft: Habit = { ...input, id: newId(), createdAt: today, notificationIds: [] };
     logEvent('action', `addHabit ${JSON.stringify({ ...input, description: undefined })}`);
-    const { ids, error } = await scheduleHabitReminders(draft);
+    const { ids, error } = await schedule(draft);
     const habit = { ...draft, notificationIds: ids };
     setData((d) => ({ habits: [...d.habits, habit], logs: { ...d.logs, [habit.id]: {} } }));
     return { reminderError: error };
@@ -111,7 +188,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     logEvent('action', `updateHabit ${id} ${JSON.stringify({ ...input, description: undefined })}`);
     await cancelReminders(existing.notificationIds);
     const draft: Habit = { ...existing, ...input, notificationIds: [] };
-    const { ids, error } = await scheduleHabitReminders(draft);
+    const { ids, error } = await schedule(draft);
     const habit = { ...draft, notificationIds: ids };
     setData((d) => {
       const next = { ...d, habits: d.habits.map((h) => (h.id === id ? habit : h)) };
@@ -140,9 +217,51 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     setData((d) => withStatus(d, id, dateKey, status));
   }
 
+  function reorderHabits(ids: string[]) {
+    logEvent('action', `reorder ${ids.join(', ')}`);
+    setData((d) => {
+      const moved = new Set(ids);
+      const byId = new Map(d.habits.map((h) => [h.id, h]));
+      const habits = [...d.habits];
+      let next = 0;
+      d.habits.forEach((h, slot) => {
+        if (moved.has(h.id)) habits[slot] = byId.get(ids[next++]) ?? h;
+      });
+      return { ...d, habits };
+    });
+  }
+
+  async function setRemindersEnabled(enabled: boolean): Promise<SaveResult> {
+    logEvent('action', `reminders (all habits) → ${enabled ? 'on' : 'off'}`);
+    updateSettings({ reminders: enabled });
+    const habits = data.habits;
+    await Promise.all(habits.map((h) => cancelReminders(h.notificationIds)));
+    const results: ScheduleResult[] = enabled
+      ? await Promise.all(habits.map((h) => scheduleHabitReminders({ ...h, notificationIds: [] })))
+      : habits.map(() => ({ ids: [] }));
+    const idsById = new Map(habits.map((h, i) => [h.id, results[i].ids]));
+    setData((d) => ({
+      ...d,
+      habits: d.habits.map((h) => ({ ...h, notificationIds: idsById.get(h.id) ?? h.notificationIds })),
+    }));
+    return { reminderError: results.find((r) => r.error)?.error };
+  }
+
   return (
     <HabitsContext
-      value={{ ...data, ready, today, addHabit, updateHabit, deleteHabit, setStatus, celebration }}>
+      value={{
+        ...data,
+        ready,
+        loadIssue,
+        today,
+        addHabit,
+        updateHabit,
+        deleteHabit,
+        setStatus,
+        reorderHabits,
+        setRemindersEnabled,
+        celebration,
+      }}>
       {children}
     </HabitsContext>
   );

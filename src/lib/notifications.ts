@@ -109,5 +109,13 @@ export async function scheduleHabitReminders(habit: Habit): Promise<ScheduleResu
 }
 
 export async function cancelReminders(ids: string[]) {
-  await Promise.all(ids.map((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => {})));
+  // A failed cancel (e.g. an id the OS no longer knows after a reinstall) must not block the
+  // others or the save, but it is logged.
+  await Promise.all(
+    ids.map((id) =>
+      Notifications.cancelScheduledNotificationAsync(id).catch((e) =>
+        logEvent('error', `cancelling reminder ${id} failed: ${errorText(e)}`),
+      ),
+    ),
+  );
 }
