@@ -1,56 +1,92 @@
-# Welcome to your Expo app 👋
+<div align="center">
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+# 🔥 Streakly
 
-## Get started
+**A small, focused habit tracker for iOS and Android.**
+Check off your habits, keep the streak alive, and see your progress at a glance.
 
-1. Install dependencies
+![Expo SDK 58](https://img.shields.io/badge/Expo-SDK%2058-000020?logo=expo&logoColor=white)
+![React Native 0.88](https://img.shields.io/badge/React%20Native-0.88-61DAFB?logo=react&logoColor=black)
+![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![Reanimated 4](https://img.shields.io/badge/Reanimated-4-6B52AE)
+![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20Web-lightgrey)
 
-   ```bash
-   npm install
-   ```
+</div>
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## ✨ Features
 
-In the output, you'll find options to open the app in a
+- **Today at a glance**: one card per habit, with the habits due today listed first and rest days at the bottom. A progress card shows how much of the day is done.
+- **Flexible schedules**: every day, or only on the weekdays you choose. Days off never break a streak.
+- **Streaks & stats**: current streak, best streak and success rate for each habit.
+- **Weekly chart**: animated bars with the completion rate of the last 8 weeks.
+- **History calendar**: a month view of every day (done, not done, rest day). Tap a past day to fix it.
+- **Reminders**: as many local notifications per habit as you want, picked with a custom snapping time wheel. They follow the habit's schedule.
+- **Personal touch**: an emoji icon and an accent colour for each habit.
+- **Confetti 🎉** when every habit due today is complete. It is skipped when the system "reduce motion" setting is on.
+- **Light & dark mode** that follow the system theme.
+- **Offline & private**: everything is stored on the device. No account, no backend, no tracking.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 🧱 Tech stack
 
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+| Area           | Choice                                                                   |
+| -------------- | ------------------------------------------------------------------------ |
+| Framework      | [Expo](https://expo.dev) SDK 58, React Native 0.88, React 19             |
+| Language       | TypeScript, React Compiler enabled                                       |
+| Navigation     | Expo Router (file-based routing, typed routes)                           |
+| Animation      | React Native Reanimated 4 + Worklets, Gesture Handler                    |
+| Storage        | `expo-sqlite` key-value store (falls back to `localStorage` on web)      |
+| Notifications  | `expo-notifications`, weekly repeating local triggers                    |
 
-## Get a fresh project
+No UI kit and no chart library: the cards, buttons, bar chart, calendar, time wheel and confetti are all built from scratch.
 
-When you're ready, run:
+## 🔍 Under the hood
 
-```bash
-npm run reset-project
+A few details worth a look:
+
+- **Day states as a single source of truth.** Every day of a habit is one of `done`, `missed`, `pending`, `off`, `future` or `before`. Streaks, stats, charts and calendar colours are all derived from it ([`src/lib/habit-utils.ts`](src/lib/habit-utils.ts)).
+- **Automatic back-filling.** When the app opens, and at midnight, each scheduled day that was not checked is recorded as "not done". The walk back is capped, so an app left unopened for months still starts instantly.
+- **Cheap streaks.** The home screen streak walks back only as far as the streak goes, instead of replaying the whole history for every card.
+- **Robust reminders.** One weekly notification per *scheduled day × reminder time*, all scheduled in parallel with `Promise.allSettled`. The habit is always saved, and the user is told if any reminder failed. A known Expo Go issue with Android notification channels is handled with a fallback to the default channel.
+- **Platform-specific modules.** `storage.web.ts`, `notifications.web.ts` and `use-color-scheme.web.ts` replace the native modules on web, with no runtime checks spread across the code.
+- **Smooth custom transitions.** Pushed screens slide over the previous one, which stays mounted and visible underneath. Confetti runs entirely on the UI thread using only transforms and opacity.
+
+## 📁 Project structure
+
+```
+src/
+├── app/            # Expo Router screens: today, new habit, habit detail, edit
+├── components/     # Habit cards, charts, calendar, form, time wheel, confetti, UI primitives
+├── constants/      # Theme tokens (colours, spacing, radii, type), habit palette and icons
+├── hooks/          # Theme and colour-scheme hooks
+└── lib/            # Store (React context), habit logic, dates, storage, notifications
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+## 🚀 Getting started
 
-### Other setup steps
+**Requirements:** Node.js and the [Expo Go](https://expo.dev/go) app, or an Android emulator / iOS simulator.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+git clone https://github.com/TanturliMatteo/streakly.git
+cd streakly
+npm install
+npx expo start
+```
 
-## Learn more
+Then scan the QR code with Expo Go, or press `a` for Android, `i` for iOS, `w` for web.
 
-To learn more about developing your project with Expo, look at the following resources:
+> Reminders only work on iOS and Android. On web the app works fully, but without notifications.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Useful scripts
 
-## Join the community
+```bash
+npx expo lint        # lint
+npx tsc --noEmit     # typecheck
+npx expo-doctor      # check dependencies and config
+```
 
-Join our community of developers creating universal apps.
+## 👤 Author
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+**Matteo Tanturli** · [GitHub](https://github.com/TanturliMatteo) · [LinkedIn](https://www.linkedin.com/in/matteo-tanturli)
