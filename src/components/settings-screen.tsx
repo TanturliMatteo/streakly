@@ -22,7 +22,7 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: 'dark', label: 'Dark' },
 ];
 
-const APP_NAME = Constants.expoConfig?.name ?? 'Habits';
+const APP_NAME = Constants.expoConfig?.name ?? 'Streakly';
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 /** Settings page (`/settings`): appearance, reminders, about. */

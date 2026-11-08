@@ -1,19 +1,16 @@
 {
   "expo": {
-    "name": "Habits",
+    "name": "Streakly",
     "slug": "Habits-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "habitsapp",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
     "android": {
       "package": "com.matteo.streakly",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#5B5BD6",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -29,9 +26,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#5B5BD6",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 96
         }
       ],
       "expo-sqlite",

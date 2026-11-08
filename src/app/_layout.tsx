@@ -14,7 +14,7 @@ import { StyleSheet, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { AnimatedSplashOverlay } from '@/components/splash-overlay';
 import { Celebration } from '@/components/confetti';
 import { Notice } from '@/components/notice';
 import { PageScroll, PrimaryButton } from '@/components/ui';
