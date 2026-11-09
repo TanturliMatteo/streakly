@@ -1,6 +1,2 @@
-// App entry: Expo Router, plus the home-screen widget task (Android only).
+// App entry: Expo Router.
 import 'expo-router/entry';
-
-import { registerWidgets } from './src/widgets/register';
-
-registerWidgets();

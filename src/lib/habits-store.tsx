@@ -1,12 +1,11 @@
-import { createContext, use, useEffect, useState, type ReactNode } from 'react';
+import { createContext, use, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
-import { setWidgetToggleHandler } from '@/widgets/bridge';
-import { updateWidgets } from '@/widgets/sync';
+import { takeWidgetToggles, updateWidgets } from '@/widgets/sync';
 
 import { toKey } from './dates';
 import { logEvent } from './debug-log';
-import { allDoneToday, withStatus } from './habit-data';
+import { allDoneToday, applyWidgetToggles, withStatus } from './habit-data';
 import { backfill, newId } from './habit-utils';
 import { cancelReminders, scheduleHabitReminders } from './notifications';
 import { useSettings } from './settings-store';
@@ -62,6 +61,13 @@ function backfillAll(data: HabitsData, today: string): HabitsData {
   return changed ? { ...data, logs } : data;
 }
 
+/** Stored data plus the checks made in the widget while the app was closed. */
+function withWidgetChecks(data: HabitsData): HabitsData {
+  const toggles = takeWidgetToggles();
+  if (toggles.length > 0) logEvent('action', `applied ${toggles.length} widget check(s)`);
+  return applyWidgetToggles(data, toggles);
+}
+
 export function HabitsProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<HabitsData>({ habits: [], logs: {} });
   const [ready, setReady] = useState(false);
@@ -69,6 +75,13 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   const [celebration, setCelebration] = useState(0);
   const [loadIssue, setLoadIssue] = useState<LoadIssue | null>(null);
   const { settings, updateSettings } = useSettings();
+  // Saving is off until loaded, and for the whole session after a failed read (the stored data
+  // may still be intact). The ref lets the foreground handler read it.
+  const canSave = ready && loadIssue !== 'unreadable';
+  const canSaveRef = useRef(false);
+  useEffect(() => {
+    canSaveRef.current = canSave;
+  }, [canSave]);
 
   /** Schedules a habit's reminders, unless they are switched off for the whole app. */
   const schedule = async (habit: Habit): Promise<ScheduleResult> =>
@@ -111,7 +124,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         }
         setLoadIssue('repaired');
       }
-      if (parsed) setData(backfillAll(parsed, todayKey));
+      if (parsed) setData(backfillAll(withWidgetChecks(parsed), todayKey));
     }
 
     load()
@@ -123,11 +136,15 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Keep "today" fresh (on foreground and at midnight) and back-fill the day that just ended.
+  // Coming back to the foreground also picks up the checks made in the widget meanwhile.
   useEffect(() => {
     const refresh = () => {
       const key = toKey(new Date());
+      // Only once the data is loaded and can be saved, or the checks would be lost.
+      const toggles = canSaveRef.current ? takeWidgetToggles() : [];
       setToday(key);
-      setData((d) => backfillAll(d, key));
+      setData((d) => backfillAll(applyWidgetToggles(d, toggles), key));
+      if (toggles.length > 0) logEvent('action', `applied ${toggles.length} widget check(s)`);
     };
     const sub = AppState.addEventListener('change', (s) => s === 'active' && refresh());
     const now = new Date();
@@ -139,9 +156,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     };
   }, [today]);
 
-  // Persist (never after a failed read: the stored data may still be intact), then refresh the
-  // home-screen widgets with the saved data (also when the theme changes).
-  const canSave = ready && loadIssue !== 'unreadable';
+  // Persist, then refresh the home-screen widget with the saved data (also when the theme changes).
   const theme = settings.theme;
   useEffect(() => {
     if (!canSave) return;
@@ -149,18 +164,6 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       .then(() => updateWidgets(data, theme))
       .catch((e) => logEvent('error', `saving habits failed: ${String(e)}`));
   }, [data, canSave, theme]);
-
-  // While the app is running, a widget's check goes through the app's state (one source of truth:
-  // otherwise the app would later overwrite the widget's change with its older copy).
-  useEffect(() => {
-    if (!canSave) return;
-    setWidgetToggleHandler((id) => {
-      if (!data.habits.some((h) => h.id === id)) return;
-      logEvent('action', `widget check ${id}`);
-      setStatus(id, today, data.logs[id]?.[today] === 'done' ? null : 'done');
-    });
-    return () => setWidgetToggleHandler(null);
-  });
 
   async function addHabit(input: HabitInput): Promise<SaveResult> {
     const draft: Habit = { ...input, id: newId(), createdAt: today, notificationIds: [] };

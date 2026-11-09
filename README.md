@@ -43,7 +43,7 @@ Check off your habits, keep the streak alive, and see your progress at a glance.
 | Animation      | React Native Reanimated 4 + Worklets, Gesture Handler                    |
 | Storage        | `expo-sqlite` key-value store (falls back to `localStorage` on web)      |
 | Notifications  | `expo-notifications`, weekly repeating local triggers                    |
-| Widgets        | `react-native-android-widget` (rendered from JSX, runs headless)         |
+| Widget         | Native Android widget (Kotlin, RemoteViews) in a local Expo module       |
 | Builds         | EAS Build (development client, internal APK, production)                 |
 
 No UI kit and no chart library: the cards, buttons, bar chart, calendar, time wheel and confetti are all built from scratch.
@@ -58,7 +58,7 @@ A few details worth a look:
 - **Robust reminders.** One weekly notification per *scheduled day × reminder time*, all scheduled in parallel with `Promise.allSettled`. The habit is always saved, and the user is told if any reminder failed. A known Expo Go issue with Android notification channels is handled with a fallback to the default channel.
 - **Stored data is untrusted.** Saved JSON is validated and repaired field by field when it loads. A copy of the original is kept before any repair, and if storage can't be read at all the app refuses to save, so a bad read can never wipe your habits.
 - **Gestures on the UI thread.** Drag-to-reorder keeps the card order in a shared value and moves every card with Reanimated, so the list stays smooth while you drag. React state is updated only once, when you let go.
-- **Widgets that work with the app closed.** A check on the widget runs in a background task that updates the saved data directly. While the app is open, the tap goes through the app's own state instead, so the two copies never overwrite each other.
+- **A widget that works with the app closed.** The native widget keeps its own copy of the data and works out "today" itself. A check on the widget shows at once and is queued; the app applies the queue when it opens, then saves, so the two copies never overwrite each other.
 - **Platform-specific modules.** `storage.web.ts`, `notifications.web.ts` and `use-color-scheme.web.ts` replace the native modules on web, with no runtime checks spread across the code.
 - **Smooth custom transitions.** Pushed screens slide over the previous one, which stays mounted and visible underneath. Confetti runs entirely on the UI thread using only transforms and opacity.
 
@@ -71,7 +71,7 @@ src/
 ├── constants/      # Theme tokens (colours, spacing, radii, type), habit palette and icons
 ├── hooks/          # Theme and colour-scheme hooks
 ├── lib/            # Stores (React context), habit logic, validation, dates, storage, notifications
-└── widgets/        # Android home-screen widgets and their background task
+└── widgets/        # Link with the native widget (modules/streakly-widget)
 ```
 
 ## 🚀 Getting started
@@ -93,7 +93,7 @@ Open the installed Streakly app on the device and connect it to the dev server, 
 
 To get a standalone APK that runs without a dev server: `npx eas-cli@latest build --profile preview --platform android`.
 
-> Widgets are Android only. On web the app works fully, but without notifications.
+> The widget is Android only. On web the app works fully, but without notifications.
 
 ### Useful scripts
 

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Whole widget: rounded background, header ("Today" + done/due) and the scrolling list.
+     Only RemoteViews-supported views (FrameLayout, LinearLayout, ImageView, TextView, ListView). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@android:id/background"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent">
+
+  <ImageView
+    android:id="@+id/streakly_bg"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:importantForAccessibility="no"
+    android:scaleType="fitXY"
+    android:src="@drawable/streakly_widget_bg" />
+
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <LinearLayout
+      android:id="@+id/streakly_header"
+      android:layout_width="match_parent"
+      android:layout_height="24dp"
+      android:layout_marginBottom="8dp"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:paddingStart="4dp"
+      android:paddingEnd="4dp">
+
+      <TextView
+        android:id="@+id/streakly_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="Today"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+      <TextView
+        android:id="@+id/streakly_count"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+    </LinearLayout>
+
+    <FrameLayout
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1">
+
+      <ListView
+        android:id="@+id/streakly_list"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:divider="@null"
+        android:dividerHeight="0dp"
+        android:scrollbars="none" />
+
+      <!-- Shown by the list when it has no rows (no habits / rest day). -->
+      <TextView
+        android:id="@+id/streakly_empty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+    </FrameLayout>
+  </LinearLayout>
+</FrameLayout>

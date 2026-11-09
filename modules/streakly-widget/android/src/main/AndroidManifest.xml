@@ -1,0 +1,22 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- "Today's habits" home-screen widget. -->
+    <receiver
+      android:name="expo.modules.streaklywidget.StreaklyWidgetProvider"
+      android:label="@string/streakly_widget_label"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/streakly_widget_info" />
+    </receiver>
+
+    <!-- Supplies the rows of the widget's scrolling list. -->
+    <service
+      android:name="expo.modules.streaklywidget.StreaklyWidgetService"
+      android:permission="android.permission.BIND_REMOTEVIEWS"
+      android:exported="false" />
+  </application>
+</manifest>

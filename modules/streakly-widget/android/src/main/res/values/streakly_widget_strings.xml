@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="streakly_widget_label">Today\'s habits</string>
+  <string name="streakly_widget_description">Check off today\'s habits from the home screen</string>
+</resources>

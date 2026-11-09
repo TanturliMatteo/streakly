@@ -10,10 +10,15 @@ export function withStatus(data: HabitsData, id: string, dateKey: string, status
   return { ...data, logs: { ...data.logs, [id]: log } };
 }
 
-/** Today's check toggled: done ↔ not done (cleared). */
-export function toggleToday(data: HabitsData, id: string, today: string): HabitsData {
-  const done = data.logs[id]?.[today] === 'done';
-  return withStatus(data, id, today, done ? null : 'done');
+/** A check made in the home-screen widget: `date` set to done, or cleared. */
+export type WidgetToggle = { id: string; date: string; done: boolean };
+
+/** Applies the widget's checks in order (unknown habits are skipped). */
+export function applyWidgetToggles(data: HabitsData, toggles: WidgetToggle[]): HabitsData {
+  return toggles.reduce(
+    (d, t) => (d.habits.some((h) => h.id === t.id) ? withStatus(d, t.id, t.date, t.done ? 'done' : null) : d),
+    data,
+  );
 }
 
 export type TodayItem = { habit: Habit; state: DayState; streak: number };
