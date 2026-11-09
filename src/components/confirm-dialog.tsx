@@ -13,10 +13,10 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { logTap } from '@/lib/debug-log';
 
-import { Duration, Ease } from './motion';
+import { Timing } from './motion';
 import { Card, IconBubble, PrimaryButton, Txt } from './ui';
 
-const TIMING = { duration: Duration.fast, easing: Ease };
+const TIMING = Timing.fast;
 
 export function ConfirmDialog({
   open,

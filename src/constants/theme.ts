@@ -75,7 +75,6 @@ export const MaxContentWidth = 800;
 export const Alpha = {
   soft: 0.14,
   medium: 0.25,
-  strong: 0.35,
 } as const;
 
 /** `#RRGGBB` + alpha (0–1) → `rgba()` */

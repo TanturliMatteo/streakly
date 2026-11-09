@@ -12,7 +12,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fromKey, MONTHS, WEEKDAY_SHORT } from '@/lib/dates';
 import { logTap } from '@/lib/debug-log';
-import { dayState } from '@/lib/habit-utils';
+import { dayState, isDue } from '@/lib/habit-utils';
 import { useHabits } from '@/lib/habits-store';
 
 const openNewHabit = () => router.push('/new');
@@ -28,7 +28,7 @@ export default function TodayScreen() {
   let done = 0;
   const items = habits.map((habit) => {
     const state = dayState(habit, logs[habit.id] ?? {}, today, today);
-    if (state !== 'off') due++;
+    if (isDue(state)) due++;
     if (state === 'done') done++;
     return { habit, state };
   });

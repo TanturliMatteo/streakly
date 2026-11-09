@@ -1,13 +1,11 @@
-import { addDays, describeDays, fromKey, startOfWeek, toKey } from './dates';
+import { addDays, ALL_DAYS, describeDays, fromKey, startOfWeek, toKey } from './dates';
 import type { DayState, Habit, HabitLog, Weekday } from './types';
-
-const ALL_DAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6];
 
 export function habitDays(habit: Habit): Weekday[] {
   return habit.frequency.type === 'daily' ? ALL_DAYS : habit.frequency.days;
 }
 
-export function isScheduled(habit: Habit, date: Date) {
+function isScheduled(habit: Habit, date: Date) {
   return habitDays(habit).includes(date.getDay() as Weekday);
 }
 
@@ -22,6 +20,16 @@ export function dayState(habit: Habit, log: HabitLog, key: string, today: string
   if (recorded) return recorded;
   if (!isScheduled(habit, fromKey(key))) return 'off';
   return key === today ? 'pending' : 'missed';
+}
+
+/** Whether a day in this state counts towards the day's progress (not a rest day, not outside the habit's life). */
+export function isDue(state: DayState) {
+  return state === 'done' || state === 'pending' || state === 'missed';
+}
+
+/** Card / widget subtitle: the running streak, or the description as a nudge to start one. */
+export function streakSubtitle(habit: Habit, streak: number) {
+  return streak > 0 ? `🔥 ${streak} day streak` : habit.description || 'Start your streak today';
 }
 
 /** Max days walked back when back-filling, so a long-idle app stays fast. */

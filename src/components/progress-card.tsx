@@ -6,7 +6,7 @@ import { Common } from '@/constants/styles';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-import { Duration, Ease, Motion } from './motion';
+import { Motion, Timing } from './motion';
 import { Card, Txt } from './ui';
 
 /**
@@ -23,7 +23,7 @@ export function ProgressCard({ label, done, due }: { label: string; done: number
   const width = useSharedValue(progress);
 
   useEffect(() => {
-    width.set(withTiming(progress, { duration: Duration.slow, easing: Ease }));
+    width.set(withTiming(progress, Timing.slow));
   }, [progress, width]);
 
   const fillStyle = useAnimatedStyle(() => ({ width: `${width.get() * 100}%` }));

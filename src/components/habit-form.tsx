@@ -4,7 +4,7 @@ import { Alert, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Common } from '@/constants/styles';
 import { Alpha, CardPadding, HabitColors, HabitIcons, Radius, Spacing, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { describeDays } from '@/lib/dates';
+import { ALL_DAYS, describeDays } from '@/lib/dates';
 import { logEvent, logTap } from '@/lib/debug-log';
 import { notificationsSupported } from '@/lib/notifications';
 import type { Frequency, HabitInput, ReminderSettings, ReminderTime, Weekday } from '@/lib/types';
@@ -24,7 +24,6 @@ import {
 } from './ui';
 
 const MAX_TIMES = 3;
-const ALL_DAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6];
 const WEEKDAYS: Weekday[] = [1, 2, 3, 4, 5];
 const DEFAULT_TIME: ReminderTime = { hour: 9, minute: 0 };
 

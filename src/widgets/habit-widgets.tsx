@@ -5,11 +5,17 @@
  * - `TodayHabits`: habits due today; the round check on the right toggles done / not done,
  *   tapping a habit opens it in the app, tapping the header opens the app.
  * - `TodayRing`: a progress ring with today's done / due count.
+ *
+ * The library calls these components as plain functions, outside a React render, so they must
+ * not be compiled by the React Compiler (its memo cache is a hook and throws there).
  */
+'use no memo';
+
 import {
   FlexWidget,
   ListWidget,
   OverlapWidget,
+  requestWidgetUpdate,
   SvgWidget,
   TextWidget,
   type ColorProp,
@@ -18,12 +24,14 @@ import {
 } from 'react-native-android-widget';
 
 import { Alpha, Colors, withAlpha, type Theme } from '@/constants/theme';
+import { logEvent } from '@/lib/debug-log';
 import { dueToday, type TodayItem } from '@/lib/habit-data';
+import { streakSubtitle } from '@/lib/habit-utils';
 
 import type { WidgetSnapshot } from './snapshot';
 
-export const WIDGET_NAMES = ['TodayHabits', 'TodayRing'] as const;
-export type WidgetName = (typeof WIDGET_NAMES)[number];
+/** Must match the widget names in app.json (`react-native-android-widget` plugin). */
+const WIDGET_NAMES = ['TodayHabits', 'TodayRing'] as const;
 
 /** Click action of a row's check button (`clickActionData: { id }`). */
 export const TOGGLE_ACTION = 'TOGGLE_HABIT';
@@ -54,7 +62,7 @@ function Header({ theme, done, due }: { theme: Theme; done: number; due: number 
 function HabitRow({ item, theme }: { item: TodayItem; theme: Theme }) {
   const { habit, state, streak } = item;
   const done = state === 'done';
-  const subtitle = streak > 0 ? `🔥 ${streak} day streak` : habit.description || 'Start your streak today';
+  const subtitle = streakSubtitle(habit, streak);
   return (
     <FlexWidget style={{ width: 'match_parent', height: ROW_HEIGHT, paddingBottom: 8 }}>
       <FlexWidget
@@ -150,7 +158,7 @@ function Shell({ theme, children }: { theme: Theme; children: unknown }) {
   );
 }
 
-export function TodayHabitsWidget({ snapshot, theme }: { snapshot: WidgetSnapshot | null; theme: Theme }) {
+function TodayHabitsWidget({ snapshot, theme }: { snapshot: WidgetSnapshot | null; theme: Theme }) {
   if (!snapshot) {
     return (
       <Shell theme={theme}>
@@ -190,7 +198,7 @@ ${arc > 0 ? `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${accent}"
 </svg>`;
 }
 
-export function TodayRingWidget({
+function TodayRingWidget({
   snapshot,
   theme,
   size,
@@ -248,4 +256,15 @@ export function renderWidgetFor(info: WidgetInfo, snapshot: WidgetSnapshot | nul
   if (pref === 'light') return build(Colors.light);
   if (pref === 'dark') return build(Colors.dark);
   return { light: build(Colors.light), dark: build(Colors.dark) };
+}
+
+/** Redraws every placed widget with `snapshot`. Never throws: failures are logged. */
+export async function redrawAllWidgets(snapshot: WidgetSnapshot | null) {
+  await Promise.all(
+    WIDGET_NAMES.map((widgetName) =>
+      requestWidgetUpdate({ widgetName, renderWidget: (info) => renderWidgetFor(info, snapshot) }).catch((e) =>
+        logEvent('error', `widget: redrawing ${widgetName} failed: ${String(e)}`),
+      ),
+    ),
+  );
 }

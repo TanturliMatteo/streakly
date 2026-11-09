@@ -33,13 +33,13 @@ import type { DayState, Habit, HabitLog } from '@/lib/types';
 
 import { ConfirmDialog } from './confirm-dialog';
 import { HabitCard } from './habit-card';
-import { Duration, Ease, Motion } from './motion';
+import { Motion, Timing } from './motion';
 import { Txt } from './ui';
 
 const GAP = Spacing.three;
-const SLIDE = { duration: Duration.page, easing: Ease };
+const SLIDE = Timing.page;
 /** Lift / set-down of a dragged card. */
-const LIFT = { duration: Duration.fast, easing: Ease };
+const LIFT = Timing.fast;
 /** How long to hold before a card can be dragged. */
 const HOLD_MS = 350;
 /** Swipe right past this fraction of the card (or flick) to ask to delete. */

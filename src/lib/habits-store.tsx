@@ -1,23 +1,19 @@
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
-import { logEvent } from './debug-log';
-import { toKey } from './dates';
-import { updateWidgets } from '@/widgets/sync';
 import { setWidgetToggleHandler } from '@/widgets/bridge';
+import { updateWidgets } from '@/widgets/sync';
 
-import { withStatus } from './habit-data';
-import { backfill, dayState, newId } from './habit-utils';
+import { toKey } from './dates';
+import { logEvent } from './debug-log';
+import { allDoneToday, withStatus } from './habit-data';
+import { backfill, newId } from './habit-utils';
 import { cancelReminders, scheduleHabitReminders } from './notifications';
 import { useSettings } from './settings-store';
 import { loadItem, saveItem } from './storage';
 import { HABITS_KEY } from './storage-keys';
 import type { DayStatus, Habit, HabitInput, ScheduleResult } from './types';
 import { parseHabitsData, type HabitsData } from './validate';
-
-const STORAGE_KEY = HABITS_KEY;
-
-type Data = HabitsData;
 
 /**
  * Problem found while loading:
@@ -29,7 +25,7 @@ export type LoadIssue = 'repaired' | 'unreadable';
 /** The habit is always saved; `reminderError` is set if its notifications could not be scheduled. */
 export type SaveResult = { reminderError?: string };
 
-type HabitsContextValue = Data & {
+type HabitsContextValue = HabitsData & {
   ready: boolean;
   loadIssue: LoadIssue | null;
   /** Today's date key; updates at midnight and when the app returns to foreground. */
@@ -52,14 +48,7 @@ type HabitsContextValue = Data & {
 
 const HabitsContext = createContext<HabitsContextValue | null>(null);
 
-/** True when at least one habit is due today and every due habit is done. */
-function allDoneToday(data: Data, today: string) {
-  const states = data.habits.map((h) => dayState(h, data.logs[h.id] ?? {}, today, today));
-  const due = states.filter((s) => s !== 'off');
-  return due.length > 0 && due.every((s) => s === 'done');
-}
-
-function backfillAll(data: Data, today: string): Data {
+function backfillAll(data: HabitsData, today: string): HabitsData {
   let changed = false;
   const logs = { ...data.logs };
   for (const habit of data.habits) {
@@ -74,7 +63,7 @@ function backfillAll(data: Data, today: string): Data {
 }
 
 export function HabitsProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<Data>({ habits: [], logs: {} });
+  const [data, setData] = useState<HabitsData>({ habits: [], logs: {} });
   const [ready, setReady] = useState(false);
   const [today, setToday] = useState(() => toKey(new Date()));
   const [celebration, setCelebration] = useState(0);
@@ -92,7 +81,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     async function load() {
       let raw: string | null;
       try {
-        raw = await loadItem(STORAGE_KEY);
+        raw = await loadItem(HABITS_KEY);
       } catch (e) {
         // Storage itself failed: don't save anything this session, or we'd overwrite real data.
         logEvent('error', `reading habits failed, saving disabled: ${String(e)}`);
@@ -102,7 +91,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       if (!raw) return;
 
       const todayKey = toKey(new Date());
-      let parsed: Data | null = null;
+      let parsed: HabitsData | null = null;
       let problems: string[];
       try {
         const result = parseHabitsData(raw, todayKey);
@@ -114,7 +103,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       if (problems.length > 0) {
         problems.forEach((p) => logEvent('error', `loading habits: ${p}`));
         try {
-          await saveItem(`${STORAGE_KEY}/backup-${Date.now()}`, raw);
+          await saveItem(`${HABITS_KEY}/backup-${Date.now()}`, raw);
         } catch (e) {
           logEvent('error', `backing up damaged habits failed, saving disabled: ${String(e)}`);
           setLoadIssue('unreadable');
@@ -156,7 +145,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   const theme = settings.theme;
   useEffect(() => {
     if (!canSave) return;
-    saveItem(STORAGE_KEY, JSON.stringify(data))
+    saveItem(HABITS_KEY, JSON.stringify(data))
       .then(() => updateWidgets(data, theme))
       .catch((e) => logEvent('error', `saving habits failed: ${String(e)}`));
   }, [data, canSave, theme]);

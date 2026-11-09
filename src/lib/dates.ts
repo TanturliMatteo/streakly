@@ -1,6 +1,7 @@
 import type { Weekday } from './types';
 
-const pad = (n: number) => String(n).padStart(2, '0');
+/** Two-digit zero padding: 7 → `07`. */
+export const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Local-time date key, e.g. `2026-11-07`. */
 export function toKey(d: Date) {
@@ -28,6 +29,8 @@ export function formatTime(hour: number, minute: number) {
   return `${pad(hour)}:${pad(minute)}`;
 }
 
+/** Every weekday (a daily habit's days). */
+export const ALL_DAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6];
 /** Mon → Sun order, for pickers and calendars. */
 export const WEEK_ORDER: Weekday[] = [1, 2, 3, 4, 5, 6, 0];
 export const WEEKDAY_LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];

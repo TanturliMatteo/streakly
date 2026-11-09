@@ -2,22 +2,13 @@
  * Background task for the home-screen widgets: (re)draws them and handles taps on a check.
  * Runs in the app's JS runtime, also when the app's UI is closed.
  */
-import { requestWidgetUpdate, type WidgetTaskHandlerProps } from 'react-native-android-widget';
+import type { WidgetTaskHandlerProps } from 'react-native-android-widget';
 
 import { logEvent } from '@/lib/debug-log';
 
 import { toggleInApp } from './bridge';
-import { renderWidgetFor, TOGGLE_ACTION, WIDGET_NAMES } from './habit-widgets';
-import { readSnapshot, toggleInStorage, type WidgetSnapshot } from './snapshot';
-
-/** Redraws every placed widget (e.g. the ring after a check in the list). */
-async function refreshAll(snapshot: WidgetSnapshot | null) {
-  for (const widgetName of WIDGET_NAMES) {
-    await requestWidgetUpdate({ widgetName, renderWidget: (info) => renderWidgetFor(info, snapshot) }).catch((e) =>
-      logEvent('error', `widget: refreshing ${widgetName} failed: ${String(e)}`),
-    );
-  }
-}
+import { redrawAllWidgets, renderWidgetFor, TOGGLE_ACTION } from './habit-widgets';
+import { readSnapshot, toggleInStorage } from './snapshot';
 
 export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
   const { widgetInfo, widgetAction, clickAction, clickActionData } = props;
@@ -34,7 +25,8 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
       if (toggleInApp(id)) return;
       const snapshot = await toggleInStorage(id);
       props.renderWidget(renderWidgetFor(widgetInfo, snapshot));
-      await refreshAll(snapshot);
+      // The other widgets too (e.g. the ring after a check in the list).
+      await redrawAllWidgets(snapshot);
       return;
     }
     // Added, periodic update (also picks up a new day), resize, or other taps.

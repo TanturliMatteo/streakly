@@ -28,10 +28,10 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { logEvent } from '@/lib/debug-log';
 
-import { Duration, Ease, Springs } from './motion';
+import { Springs, Timing } from './motion';
 import { RoundButton, Txt } from './ui';
 
-const SLIDE = { duration: Duration.page, easing: Ease };
+const SLIDE = Timing.page;
 const CLOSE_FRACTION = 0.33; // swipe past a third of the screen…
 const CLOSE_VELOCITY = 800; // …or flick to close
 

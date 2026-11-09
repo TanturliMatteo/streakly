@@ -13,7 +13,7 @@ import Animated from 'react-native-reanimated';
 import { Common } from '@/constants/styles';
 import { Alpha, Radius, Spacing, Type, withAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatTime } from '@/lib/dates';
+import { formatTime, pad } from '@/lib/dates';
 import { logTap } from '@/lib/debug-log';
 import type { ReminderTime } from '@/lib/types';
 
@@ -80,7 +80,7 @@ function Wheel({
                     fontSize: distance === 0 ? 26 : 20,
                   },
                 ]}>
-                {String(v).padStart(2, '0')}
+                {pad(v)}
               </Txt>
             </Pressable>
           );

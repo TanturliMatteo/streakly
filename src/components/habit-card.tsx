@@ -7,7 +7,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { addDays, fromKey, toKey, WEEKDAY_LETTER } from '@/lib/dates';
 import { logTap } from '@/lib/debug-log';
-import { currentStreak, dayState } from '@/lib/habit-utils';
+import { currentStreak, dayState, streakSubtitle } from '@/lib/habit-utils';
 import type { DayState, Habit, HabitLog } from '@/lib/types';
 
 import { dayColors } from './day-colors';
@@ -32,11 +32,7 @@ export function HabitCard({
   const theme = useTheme();
   const restDay = state === 'off';
   const streak = restDay ? 0 : currentStreak(habit, log, today);
-  const subtitle = restDay
-    ? 'Rest day'
-    : streak > 0
-      ? `🔥 ${streak} day streak`
-      : habit.description || 'Start your streak today';
+  const subtitle = restDay ? 'Rest day' : streakSubtitle(habit, streak);
 
   const start = fromKey(today);
   const last7 = Array.from({ length: 7 }, (_, i) => addDays(start, i - 6));

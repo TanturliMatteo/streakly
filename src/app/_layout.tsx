@@ -10,7 +10,6 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
-import { StyleSheet, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,7 +17,8 @@ import { AnimatedSplashOverlay } from '@/components/splash-overlay';
 import { Celebration } from '@/components/confetti';
 import { Notice } from '@/components/notice';
 import { PageScroll, PrimaryButton } from '@/components/ui';
-import { Colors } from '@/constants/theme';
+import { Common } from '@/constants/styles';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { installGlobalErrorLogging, logEvent } from '@/lib/debug-log';
 import { HabitsProvider } from '@/lib/habits-store';
@@ -27,8 +27,10 @@ import { SettingsProvider } from '@/lib/settings-store';
 // Pages opened from a link (e.g. a habit tapped in the widget) keep Home underneath, so back works.
 export const unstable_settings = { initialRouteName: 'index' };
 
-SplashScreen.preventAutoHideAsync();
 installGlobalErrorLogging();
+SplashScreen.preventAutoHideAsync().catch((e) =>
+  logEvent('error', `keeping the splash screen failed: ${String(e)}`),
+);
 
 /** Logs every screen change to the Metro terminal (dev only). */
 function NavigationLogger() {
@@ -41,8 +43,8 @@ function NavigationLogger() {
 }
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const dark = useColorScheme() === 'dark';
+  const colors = useTheme();
 
   // The window behind the screens matches the theme, so nothing light flashes through.
   useEffect(() => {
@@ -52,8 +54,8 @@ export default function RootLayout() {
   }, [colors.background]);
 
   return (
-    <GestureHandlerRootView style={[styles.flex, { backgroundColor: colors.background }]}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <GestureHandlerRootView style={[Common.flex, { backgroundColor: colors.background }]}>
+      <ThemeProvider value={dark ? DarkTheme : DefaultTheme}>
         <NavigationLogger />
         <SettingsProvider>
           <HabitsProvider>
@@ -83,7 +85,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
     logEvent('error', `render crash: ${error.message}`);
   }, [error]);
   return (
-    <SafeAreaView style={[styles.flex, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[Common.flex, { backgroundColor: theme.background }]}>
       <PageScroll>
         <Notice
           icon="😵"
@@ -102,7 +104,3 @@ const overlayPage = {
   gestureEnabled: false,
   contentStyle: { backgroundColor: 'transparent' },
 } as const;
-
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-});

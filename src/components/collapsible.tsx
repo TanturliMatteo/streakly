@@ -3,9 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { Duration, Ease } from './motion';
+import { Timing } from './motion';
 
-const TIMING = { duration: Duration.base, easing: Ease };
+const TIMING = Timing.base;
 
 /**
  * Shows / hides its children by animating the real height (and opacity) together, so whatever is

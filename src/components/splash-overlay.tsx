@@ -2,8 +2,12 @@ import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { Easing, Keyframe } from 'react-native-reanimated';
+import Animated, { Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+
+import { logEvent } from '@/lib/debug-log';
+
+import { Ease } from './motion';
 
 /** Same colour and image as the native splash (`expo-splash-screen` in app.json). */
 const SPLASH_COLOR = '#5B5BD6';
@@ -12,7 +16,7 @@ const DURATION = 600;
 const fadeOut = new Keyframe({
   0: { opacity: 1 },
   20: { opacity: 1 },
-  70: { opacity: 0, easing: Easing.bezier(0.2, 0, 0, 1) },
+  70: { opacity: 0, easing: Ease },
   100: { opacity: 0 },
 });
 
@@ -42,9 +46,9 @@ export function AnimatedSplashOverlay() {
   ) : (
     <View
       onLayout={() => {
-        SplashScreen.hideAsync().finally(() => {
-          setAnimate(true);
-        });
+        SplashScreen.hideAsync()
+          .catch((e) => logEvent('error', `hiding the splash screen failed: ${String(e)}`))
+          .finally(() => setAnimate(true));
       }}
       style={styles.splashOverlay}>
       {image}

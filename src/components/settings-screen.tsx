@@ -6,13 +6,13 @@ import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated'
 import { Common } from '@/constants/styles';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { logTap } from '@/lib/debug-log';
+import { logEvent, logTap } from '@/lib/debug-log';
 import { useHabits } from '@/lib/habits-store';
 import { notificationsSupported } from '@/lib/notifications';
 import { useSettings, type ThemePreference } from '@/lib/settings-store';
 
 import { Collapsible } from './collapsible';
-import { Duration, Ease, PressableScale } from './motion';
+import { PressableScale, Timing } from './motion';
 import { Screen } from './screen';
 import { Card, PageScroll, SectionLabel, Segmented, Txt } from './ui';
 
@@ -81,7 +81,9 @@ export function SettingsScreen() {
               <Row
                 label="System notification settings"
                 logLabel="open system notification settings"
-                onPress={() => Linking.openSettings()}
+                onPress={() =>
+                  Linking.openSettings().catch((e) => logEvent('error', `opening system settings failed: ${String(e)}`))
+                }
               />
             </>
           )}
@@ -131,7 +133,7 @@ function Row({
   open?: boolean;
 }) {
   const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: withTiming(open ? '90deg' : '0deg', { duration: Duration.base, easing: Ease }) }],
+    transform: [{ rotate: withTiming(open ? '90deg' : '0deg', Timing.base) }],
   }));
   return (
     <PressableScale

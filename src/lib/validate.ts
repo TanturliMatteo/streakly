@@ -22,6 +22,8 @@ const isInt = (v: unknown, min: number, max: number): v is number =>
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+/** Reminders that had to be turned off keep this time, ready for when they're switched back on. */
+const remindersOff = (): ReminderSettings => ({ enabled: false, times: [{ hour: 9, minute: 0 }] });
 
 function parseTime(v: unknown): ReminderTime | null {
   return isObj(v) && isInt(v.hour, 0, 23) && isInt(v.minute, 0, 59) ? { hour: v.hour, minute: v.minute } : null;
@@ -44,13 +46,13 @@ function parseFrequency(v: unknown, problems: string[], label: string): Frequenc
 function parseReminder(v: unknown, problems: string[], label: string): ReminderSettings {
   if (!isObj(v) || typeof v.enabled !== 'boolean' || !Array.isArray(v.times)) {
     problems.push(`${label}: invalid reminder settings, reminders turned off`);
-    return { enabled: false, times: [{ hour: 9, minute: 0 }] };
+    return remindersOff();
   }
   const times = v.times.map(parseTime).filter((t): t is ReminderTime => t !== null);
   if (times.length !== v.times.length) problems.push(`${label}: invalid reminder times removed`);
   if (times.length === 0) {
     if (v.enabled) problems.push(`${label}: no valid reminder time, reminders turned off`);
-    return { enabled: false, times: [{ hour: 9, minute: 0 }] };
+    return remindersOff();
   }
   return { enabled: v.enabled, times };
 }

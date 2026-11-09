@@ -30,6 +30,14 @@ export const Duration = {
 /** Quick start, soft landing. Used for every timed movement. */
 export const Ease = Easing.bezier(0.2, 0, 0, 1);
 
+/** `withTiming` configs: each duration on the shared curve. */
+export const Timing = {
+  fast: { duration: Duration.fast, easing: Ease },
+  base: { duration: Duration.base, easing: Ease },
+  page: { duration: Duration.page, easing: Ease },
+  slow: { duration: Duration.slow, easing: Ease },
+} as const;
+
 export const Springs = {
   /** Press-down / release of tappable elements. */
   press: { damping: 15, stiffness: 300, mass: 0.6 },
