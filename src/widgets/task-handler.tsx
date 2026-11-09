@@ -23,10 +23,8 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
       }
       // App running: its store saves the change and redraws all widgets.
       if (toggleInApp(id)) return;
-      const snapshot = await toggleInStorage(id);
-      props.renderWidget(renderWidgetFor(widgetInfo, snapshot));
-      // The other widgets too (e.g. the ring after a check in the list).
-      await redrawAllWidgets(snapshot);
+      // Redraws this widget and any other placed copy in one pass.
+      await redrawAllWidgets(await toggleInStorage(id));
       return;
     }
     // Added, periodic update (also picks up a new day), resize, or other taps.

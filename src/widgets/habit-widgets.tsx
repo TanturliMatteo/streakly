@@ -1,10 +1,14 @@
 /**
- * Home-screen widgets (Android), drawn with react-native-android-widget primitives.
+ * Home-screen widget (Android), drawn with react-native-android-widget primitives.
  * Plain functions of their props: no hooks, no state. Same look as the app's cards.
  *
- * - `TodayHabits`: habits due today; the round check on the right toggles done / not done,
- *   tapping a habit opens it in the app, tapping the header opens the app.
- * - `TodayRing`: a progress ring with today's done / due count.
+ * `TodayHabits`: habits due today; the round check on the right toggles done / not done,
+ * tapping a habit opens it in the app, tapping the header opens the app.
+ *
+ * Everything is drawn as one picture (no scrolling `ListWidget`): the library renders at an
+ * estimated size, and a separate list layer drifted out of the box whenever that estimate was
+ * off (e.g. right after a resize). As one picture, box and cards always scale together. Rows
+ * that don't fit the height are summed up in a "+N more" row that opens the app.
  *
  * The library calls these components as plain functions, outside a React render, so they must
  * not be compiled by the React Compiler (its memo cache is a hook and throws there).
@@ -13,10 +17,7 @@
 
 import {
   FlexWidget,
-  ListWidget,
-  OverlapWidget,
   requestWidgetUpdate,
-  SvgWidget,
   TextWidget,
   type ColorProp,
   type WidgetInfo,
@@ -31,13 +32,31 @@ import { streakSubtitle } from '@/lib/habit-utils';
 import type { WidgetSnapshot } from './snapshot';
 
 /** Must match the widget names in app.json (`react-native-android-widget` plugin). */
-const WIDGET_NAMES = ['TodayHabits', 'TodayRing'] as const;
+const WIDGET_NAMES = ['TodayHabits'] as const;
 
 /** Click action of a row's check button (`clickActionData: { id }`). */
 export const TOGGLE_ACTION = 'TOGGLE_HABIT';
 
-const ROW_HEIGHT = 60;
+// Fixed heights (dp), so the number of rows that fit can be computed from the widget's height.
+const PADDING = 12;
+const GAP = 8;
+const HEADER_HEIGHT = 24;
+const ROW_HEIGHT = 52;
+const MORE_HEIGHT = 24;
 const RADIUS = 24;
+
+/** How many rows fit in `height` (dp), leaving room for a "+N more" row when not all of them do. */
+function visibleRows(height: number, count: number) {
+  const space = height - 2 * PADDING - HEADER_HEIGHT - GAP;
+  const fitting = (n: number) => n * ROW_HEIGHT + Math.max(0, n - 1) * GAP;
+  if (fitting(count) <= space) return count;
+  let n = 0;
+  while (fitting(n + 1) + GAP + MORE_HEIGHT <= space) n++;
+  if (n > 0) return n;
+  // Too short for a row plus the "+N more" line: a card is more useful (the header has the count).
+  while (n < count && fitting(n + 1) <= space) n++;
+  return n;
+}
 
 const color = (c: string) => c as ColorProp;
 const habitLink = (id: string) => `habitsapp://habit/${id}`;
@@ -46,7 +65,13 @@ function Header({ theme, done, due }: { theme: Theme; done: number; due: number 
   return (
     <FlexWidget
       clickAction="OPEN_APP"
-      style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4 }}>
+      style={{
+        width: 'match_parent',
+        height: HEADER_HEIGHT,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+      }}>
       <TextWidget text="Today" style={{ fontSize: 18, fontWeight: '800', color: color(theme.text) }} />
       <FlexWidget style={{ flex: 1 }} />
       {due > 0 && (
@@ -64,69 +89,81 @@ function HabitRow({ item, theme }: { item: TodayItem; theme: Theme }) {
   const done = state === 'done';
   const subtitle = streakSubtitle(habit, streak);
   return (
-    <FlexWidget style={{ width: 'match_parent', height: ROW_HEIGHT, paddingBottom: 8 }}>
+    <FlexWidget
+      style={{
+        width: 'match_parent',
+        height: ROW_HEIGHT,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: color(theme.backgroundElement),
+        borderRadius: 18,
+        paddingHorizontal: 10,
+      }}>
+      {/* Icon + texts: open the habit in the app. */}
       <FlexWidget
-        style={{
-          width: 'match_parent',
-          height: 'match_parent',
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: color(theme.backgroundElement),
-          borderRadius: 18,
-          paddingHorizontal: 10,
-        }}>
-        {/* Icon + texts: open the habit in the app. */}
+        clickAction="OPEN_URI"
+        clickActionData={{ uri: habitLink(habit.id) }}
+        style={{ flex: 1, height: 'match_parent', flexDirection: 'row', alignItems: 'center', flexGap: 10 }}>
         <FlexWidget
-          clickAction="OPEN_URI"
-          clickActionData={{ uri: habitLink(habit.id) }}
-          style={{ flex: 1, height: 'match_parent', flexDirection: 'row', alignItems: 'center', flexGap: 10 }}>
-          <FlexWidget
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 17,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: color(withAlpha(habit.color, Alpha.soft)),
-            }}>
-            <TextWidget text={habit.icon} style={{ fontSize: 17 }} />
-          </FlexWidget>
-          <FlexWidget style={{ flex: 1, flexDirection: 'column' }}>
-            <TextWidget
-              text={habit.name}
-              maxLines={1}
-              truncate="END"
-              style={{ fontSize: 15, fontWeight: '700', color: color(theme.text) }}
-            />
-            <TextWidget
-              text={subtitle}
-              maxLines={1}
-              truncate="END"
-              style={{ fontSize: 12, fontWeight: '500', color: color(theme.textSecondary) }}
-            />
-          </FlexWidget>
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: color(withAlpha(habit.color, Alpha.soft)),
+          }}>
+          <TextWidget text={habit.icon} style={{ fontSize: 17 }} />
         </FlexWidget>
-        {/* Check: toggles today's done / not done. */}
-        <FlexWidget
-          clickAction={TOGGLE_ACTION}
-          clickActionData={{ id: habit.id }}
-          accessibilityLabel={done ? `Mark ${habit.name} not done` : `Mark ${habit.name} done`}
-          style={{ height: 'match_parent', paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' }}>
-          <FlexWidget
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              borderWidth: 2,
-              borderColor: color(done ? habit.color : theme.textMuted),
-              backgroundColor: color(done ? habit.color : 'rgba(0, 0, 0, 0)'),
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-            {done && <TextWidget text="✓" style={{ fontSize: 16, fontWeight: '800', color: color(theme.onAccent) }} />}
-          </FlexWidget>
+        <FlexWidget style={{ flex: 1, flexDirection: 'column' }}>
+          <TextWidget
+            text={habit.name}
+            maxLines={1}
+            truncate="END"
+            style={{ fontSize: 15, fontWeight: '700', color: color(theme.text) }}
+          />
+          <TextWidget
+            text={subtitle}
+            maxLines={1}
+            truncate="END"
+            style={{ fontSize: 12, fontWeight: '500', color: color(theme.textSecondary) }}
+          />
         </FlexWidget>
       </FlexWidget>
+      {/* Check: toggles today's done / not done. */}
+      <FlexWidget
+        clickAction={TOGGLE_ACTION}
+        clickActionData={{ id: habit.id }}
+        accessibilityLabel={done ? `Mark ${habit.name} not done` : `Mark ${habit.name} done`}
+        style={{ height: 'match_parent', paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' }}>
+        <FlexWidget
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            borderWidth: 2,
+            borderColor: color(done ? habit.color : theme.textMuted),
+            backgroundColor: color(done ? habit.color : 'rgba(0, 0, 0, 0)'),
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          {done && <TextWidget text="✓" style={{ fontSize: 16, fontWeight: '800', color: color(theme.onAccent) }} />}
+        </FlexWidget>
+      </FlexWidget>
+    </FlexWidget>
+  );
+}
+
+/** Last row when not every habit fits: how many are hidden; opens the app. */
+function MoreRow({ theme, count }: { theme: Theme; count: number }) {
+  return (
+    <FlexWidget
+      clickAction="OPEN_APP"
+      style={{ width: 'match_parent', height: MORE_HEIGHT, alignItems: 'center', justifyContent: 'center' }}>
+      <TextWidget
+        text={`+${count} more · open app`}
+        style={{ fontSize: 13, fontWeight: '600', color: color(theme.textSecondary) }}
+      />
     </FlexWidget>
   );
 }
@@ -148,8 +185,8 @@ function Shell({ theme, children }: { theme: Theme; children: unknown }) {
         width: 'match_parent',
         height: 'match_parent',
         flexDirection: 'column',
-        flexGap: 8,
-        padding: 12,
+        flexGap: GAP,
+        padding: PADDING,
         borderRadius: RADIUS,
         backgroundColor: color(theme.background),
       }}>
@@ -158,7 +195,16 @@ function Shell({ theme, children }: { theme: Theme; children: unknown }) {
   );
 }
 
-function TodayHabitsWidget({ snapshot, theme }: { snapshot: WidgetSnapshot | null; theme: Theme }) {
+function TodayHabitsWidget({
+  snapshot,
+  theme,
+  height,
+}: {
+  snapshot: WidgetSnapshot | null;
+  theme: Theme;
+  /** Widget height in dp, to know how many rows fit. */
+  height: number;
+}) {
   if (!snapshot) {
     return (
       <Shell theme={theme}>
@@ -169,89 +215,24 @@ function TodayHabitsWidget({ snapshot, theme }: { snapshot: WidgetSnapshot | nul
   const { items, done } = dueToday(snapshot.data, snapshot.today);
   const empty =
     snapshot.data.habits.length === 0 ? 'No habits yet. Tap to add one.' : 'Rest day, nothing due 🌙';
+  const shown = items.slice(0, visibleRows(height, items.length));
+  const hidden = items.length - shown.length;
   return (
     <Shell theme={theme}>
       <Header theme={theme} done={done} due={items.length} />
-      {items.length === 0 ? (
-        <Message theme={theme} text={empty} />
-      ) : (
-        <ListWidget style={{ width: 'match_parent', height: 'match_parent' }}>
-          {items.map((item) => (
-            <HabitRow key={item.habit.id} item={item} theme={theme} />
-          ))}
-        </ListWidget>
-      )}
+      {/* Plain arrays, not fragments: the library can't build a tree from `<>`. */}
+      {items.length === 0 && <Message theme={theme} text={empty} />}
+      {shown.map((item) => (
+        <HabitRow key={item.habit.id} item={item} theme={theme} />
+      ))}
+      {hidden > 0 && <MoreRow theme={theme} count={hidden} />}
     </Shell>
-  );
-}
-
-/** SVG progress ring: muted track + accent arc starting at 12 o'clock. */
-function ringSvg(size: number, progress: number, track: string, accent: string) {
-  const stroke = Math.max(8, Math.round(size * 0.1));
-  const r = (size - stroke) / 2;
-  const c = size / 2;
-  const circumference = 2 * Math.PI * r;
-  const arc = Math.max(0, Math.min(1, progress)) * circumference;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${track}" stroke-width="${stroke}"/>
-${arc > 0 ? `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${accent}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${arc} ${circumference}" transform="rotate(-90 ${c} ${c})"/>` : ''}
-</svg>`;
-}
-
-function TodayRingWidget({
-  snapshot,
-  theme,
-  size,
-}: {
-  snapshot: WidgetSnapshot | null;
-  theme: Theme;
-  size: number;
-}) {
-  const counts = snapshot ? dueToday(snapshot.data, snapshot.today) : null;
-  const due = counts?.items.length ?? 0;
-  const done = counts?.done ?? 0;
-  const label = !snapshot ? 'Tap to open' : due === 0 ? 'Rest day' : done === due ? 'All done 🎉' : 'today';
-  const ring = Math.max(64, Math.floor(size - 24));
-  return (
-    <FlexWidget
-      clickAction="OPEN_APP"
-      style={{
-        width: 'match_parent',
-        height: 'match_parent',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: RADIUS,
-        backgroundColor: color(theme.background),
-      }}>
-      <OverlapWidget style={{ width: ring, height: ring }}>
-        <SvgWidget
-          svg={ringSvg(ring, due === 0 ? 0 : done / due, theme.backgroundSelected, theme.tint)}
-          style={{ width: ring, height: ring }}
-        />
-        <FlexWidget
-          style={{ width: ring, height: ring, alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-          <TextWidget
-            text={snapshot ? `${done}/${due}` : '–'}
-            style={{ fontSize: Math.round(ring * 0.24), fontWeight: '800', color: color(theme.text) }}
-          />
-          <TextWidget
-            text={label}
-            style={{ fontSize: Math.max(10, Math.round(ring * 0.1)), fontWeight: '600', color: color(theme.textSecondary) }}
-          />
-        </FlexWidget>
-      </OverlapWidget>
-    </FlexWidget>
   );
 }
 
 /** The widget for `info`, in the app's theme: light / dark following the system, or forced. */
 export function renderWidgetFor(info: WidgetInfo, snapshot: WidgetSnapshot | null): WidgetRepresentation {
-  const build = (theme: Theme) =>
-    info.widgetName === 'TodayRing' ? (
-      <TodayRingWidget snapshot={snapshot} theme={theme} size={Math.min(info.width, info.height)} />
-    ) : (
-      <TodayHabitsWidget snapshot={snapshot} theme={theme} />
-    );
+  const build = (theme: Theme) => <TodayHabitsWidget snapshot={snapshot} theme={theme} height={info.height} />;
   const pref = snapshot?.theme ?? 'system';
   if (pref === 'light') return build(Colors.light);
   if (pref === 'dark') return build(Colors.dark);

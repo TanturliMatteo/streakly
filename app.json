@@ -52,17 +52,6 @@
               "targetCellHeight": 2,
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
-            },
-            {
-              "name": "TodayRing",
-              "label": "Today's progress",
-              "description": "A ring with how much of today is done",
-              "minWidth": "110dp",
-              "minHeight": "110dp",
-              "targetCellWidth": 2,
-              "targetCellHeight": 2,
-              "resizeMode": "horizontal|vertical",
-              "updatePeriodMillis": 1800000
             }
           ]
         }

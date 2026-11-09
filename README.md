@@ -22,7 +22,7 @@ Check off your habits, keep the streak alive, and see your progress at a glance.
 
 - **Today at a glance**: one card per habit, with the habits due today listed first and rest days at the bottom. A progress card shows how much of the day is done.
 - **Gestures**: long-press a card to drag it into a new order (the other cards make room as you move, with haptic ticks). Swipe right to delete, with a confirmation, or swipe left to edit.
-- **Home-screen widgets (Android)**: a list of today's habits that you can check off without opening the app, and a progress ring.
+- **Home-screen widget (Android)**: a list of today's habits that you can check off without opening the app.
 - **Flexible schedules**: every day, or only on the weekdays you choose. Days off never break a streak.
 - **Streaks & stats**: current streak, best streak and success rate for each habit.
 - **Weekly chart**: animated bars with the completion rate of the last 8 weeks.
