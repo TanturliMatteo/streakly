@@ -5,8 +5,6 @@ import android.graphics.Color
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.Calendar
-import java.util.Locale
 
 /** One habit due today, ready to draw. */
 data class TodayRow(
@@ -29,9 +27,7 @@ private class Habit(
   val description: String,
   val icon: String,
   val color: Int,
-  /** Weekdays as in JS `Date#getDay()`: 0 = Sunday … 6 = Saturday. */
-  val days: Set<Int>,
-  val createdAt: String,
+  val rule: RuleHabit,
 )
 
 /**
@@ -42,19 +38,15 @@ private class Habit(
  * - `pending`: checks made in the widget (`[{ id, date, done }]`). They are shown at once and
  *   applied to the app's data the next time the app starts or comes to the foreground.
  *
- * "Today" is computed here with the same rules as `src/lib/habit-utils.ts` (`dayState`,
- * `currentStreak`, `streakSubtitle`), so a new day shows up without opening the app.
- * Keep the two in sync.
+ * "Today" is computed here with `HabitRules` (the app's rules, checked against the same cases),
+ * so a new day shows up without opening the app.
  */
 object WidgetStore {
   private const val TAG = "StreaklyWidget"
   private const val PREFS = "streakly_widget"
   private const val KEY_DATA = "data"
   private const val KEY_PENDING = "pending"
-  /** Longest streak walked back (10 years), a guard against bad dates. */
-  private const val MAX_STREAK_DAYS = 3650
   private val FALLBACK_COLOR = Color.parseColor("#5B5BD6")
-  private val ALL_DAYS = (0..6).toSet()
 
   private val lock = Any()
 
@@ -78,7 +70,7 @@ object WidgetStore {
       val row = readToday(context)?.rows?.firstOrNull { it.id == habitId } ?: return
       val p = prefs(context)
       val pending = parseArray(p.getString(KEY_PENDING, null))
-      pending.put(JSONObject().put("id", habitId).put("date", todayKey()).put("done", !row.done))
+      pending.put(JSONObject().put("id", habitId).put("date", HabitRules.todayKey()).put("done", !row.done))
       p.edit().putString(KEY_PENDING, pending.toString()).commit()
     }
   }
@@ -96,13 +88,13 @@ object WidgetStore {
       for (h in habits) effective[h.id] = toLog(logs.optJSONObject(h.id))
       applyPending(effective, parseArray(p.getString(KEY_PENDING, null)))
 
-      val today = todayKey()
+      val today = HabitRules.todayKey()
       val rows = habits.mapNotNull { h ->
         val log = effective[h.id] ?: mutableMapOf()
-        val state = dayState(h, log, today, today)
-        // Same as `isDue` in JS: rest days and days outside the habit's life are not shown.
-        if (state != "done" && state != "pending" && state != "missed") return@mapNotNull null
-        TodayRow(h.id, h.name, h.icon, h.color, state == "done", subtitle(h, currentStreak(h, log, today)))
+        val state = HabitRules.dayState(h.rule, log, today, today)
+        if (!HabitRules.isDue(state)) return@mapNotNull null
+        val streak = HabitRules.currentStreak(h.rule, log, today)
+        TodayRow(h.id, h.name, h.icon, h.color, state == "done", HabitRules.streakSubtitle(h.description, streak))
       }
       TodayState(root.optString("theme", "system"), habits.isNotEmpty(), rows)
     } catch (e: Exception) {
@@ -130,19 +122,15 @@ object WidgetStore {
       if (id.isEmpty() || name.isEmpty()) continue
       val frequency = o.optJSONObject("frequency")
       val weekly = frequency?.optJSONArray("days")
-      val days =
-        if (frequency?.optString("type") == "weekly" && weekly != null) {
-          (0 until weekly.length()).map { weekly.optInt(it, -1) }.filter { it in 0..6 }.toSet()
-        } else {
-          ALL_DAYS
-        }
+      val weeklyDays = if (weekly == null) emptyList() else (0 until weekly.length()).map { weekly.optInt(it, -1) }
+      val rule = HabitRules.habit(frequency?.optString("type") ?: "daily", weeklyDays, o.optString("createdAt"))
       val color =
         try {
           Color.parseColor(o.optString("color"))
         } catch (e: IllegalArgumentException) {
           FALLBACK_COLOR
         }
-      habits.add(Habit(id, name, o.optString("description"), o.optString("icon"), color, days, o.optString("createdAt")))
+      habits.add(Habit(id, name, o.optString("description"), o.optString("icon"), color, rule))
     }
     return habits
   }
@@ -168,49 +156,4 @@ object WidgetStore {
       if (change.optBoolean("done")) log[date] = "done" else log.remove(date)
     }
   }
-
-  // ─── Day rules (mirror of src/lib/habit-utils.ts) ─────────────────────────
-
-  private fun dayState(h: Habit, log: Map<String, String>, key: String, today: String): String {
-    if (key < h.createdAt) return "before"
-    if (key > today) return "future"
-    log[key]?.let { return it }
-    if (weekday(key) !in h.days) return "off"
-    return if (key == today) "pending" else "missed"
-  }
-
-  private fun currentStreak(h: Habit, log: Map<String, String>, today: String): Int {
-    var streak = 0
-    val day = calendarOf(today)
-    repeat(MAX_STREAK_DAYS) {
-      when (dayState(h, log, keyOf(day), today)) {
-        "done" -> streak++
-        "missed", "before" -> return streak
-        // "off" and "pending" (today, not done yet) don't break the streak.
-      }
-      day.add(Calendar.DAY_OF_MONTH, -1)
-    }
-    return streak
-  }
-
-  private fun subtitle(h: Habit, streak: Int): String =
-    if (streak > 0) "🔥 $streak day streak" else h.description.ifEmpty { "Start your streak today" }
-
-  // ─── Date keys (local time, `yyyy-MM-dd`, like `toKey` in JS) ──────────────
-
-  fun todayKey(): String = keyOf(Calendar.getInstance())
-
-  private fun keyOf(c: Calendar): String =
-    String.format(Locale.US, "%04d-%02d-%02d", c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH))
-
-  private fun calendarOf(key: String): Calendar {
-    val parts = key.split("-")
-    return Calendar.getInstance().apply {
-      clear()
-      set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt())
-    }
-  }
-
-  /** 0 = Sunday … 6 = Saturday. */
-  private fun weekday(key: String): Int = calendarOf(key).get(Calendar.DAY_OF_WEEK) - 1
 }

@@ -13,6 +13,11 @@ export function describeFrequency(habit: Habit) {
   return describeDays(habitDays(habit));
 }
 
+/*
+ * `dayState`, `isDue`, `currentStreak` and `streakSubtitle` also run in the Android widget
+ * (modules/streakly-widget HabitRules.kt), which works while the app is closed. Both are checked
+ * against src/lib/rules-cases.json (`npm run test:rules`): change a rule in both places and add a case.
+ */
 export function dayState(habit: Habit, log: HabitLog, key: string, today: string): DayState {
   if (key < habit.createdAt) return 'before';
   if (key > today) return 'future';

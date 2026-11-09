@@ -16,3 +16,9 @@ android {
     abortOnError false
   }
 }
+
+dependencies {
+  // HabitRulesCasesTest (JVM unit test, same versions as expo-modules-core).
+  testImplementation 'junit:junit:4.13.2'
+  testImplementation 'org.json:json:20250517'
+}
